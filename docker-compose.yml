@@ -11,7 +11,7 @@ services:
       - "POSTGRES_PASSWORD=openbamz"
       - "POSTGRESQL_MAX_CONNECTIONS=1000"
     volumes:
-      - dev-openbamz-db:/bitnami/postgresql
+      - dev-open-bamz-db:/bitnami/postgresql
     healthcheck: 
       interval: 10s
       retries: 10
@@ -32,7 +32,7 @@ services:
       - "DB_NAME=_openbamz"
       - "DATA_DIR=/home/node/data"
     volumes:
-      - dev-openbamz-data:/home/node/data
+      - dev-open-bamz-data:/home/node/data
     depends_on:
       - db
     depends_on: 
@@ -40,7 +40,7 @@ services:
         condition: service_healthy
 
 volumes:
-  dev-openbamz-db:
+  dev-open-bamz-db:
     external: true
-  dev-openbamz-data:
+  dev-open-bamz-data:
     external: true

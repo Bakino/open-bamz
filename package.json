@@ -1,0 +1,40 @@
+{
+    "name": "openbamz",
+    "version": "1.0.0",
+    "description": "Open BamZ",
+    "scripts": {
+        "start": "nodejs src/index.js",
+        "debug": "nodemon --watch src --ext mjs,cjs,js,html,json,sql --nolazy --exec 'kill-port -k 5858/tcp; node --trace-deprecation --inspect=0.0.0.0:5858 src/index.js'",
+        "release": "cross-env release-it"
+    },
+    "nodemonConfig": {
+        "-ignore": [
+            "src/plugins/react-remix/*",
+            "src/plugins/react-remix/build/"
+        ],
+        "delay": 2,
+        "verbose": true
+    },
+    "author": "Bakino",
+    "private": true,
+    "devDependencies": {
+        "@eslint/js": "^9.35.0",
+        "@release-it/bumper": "^7.0.5",
+        "cross-env": "^7.0.3",
+        "eslint": "^9.35.0",
+        "globals": "^16.4.0",
+        "kill-port": "^2.0.1",
+        "nodemon": "^3.1.10",
+        "release-it": "^19.0.5"
+    },
+    "dependencies": {
+        "body-parser": "^2.2.0",
+        "express": "^5.1.0",
+        "fs-extra": "^11.3.2",
+        "graphile-worker": "^0.16.6",
+        "postgraphile": "^5.0.0-beta.48",
+        "postgraphile-plugin-connection-filter": "^3.0.0-beta.8",
+        "socket.io": "^4.8.1",
+        "winston": "^3.17.0"
+    }
+}

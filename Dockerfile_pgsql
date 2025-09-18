@@ -6,12 +6,12 @@ FROM sibedge/postgres-plv8:${PG_VERSION}-${PLV8_VERSION}-${DEBIAN_VERSION}
 
 USER root
 
-RUN apt-get update && apt-get install -y libc++-dev postgresql-server-dev-all libcurl4-openssl-dev make g++ wget
+RUN apt-get update && apt-get install -y libc++-dev libcurl4-openssl-dev make g++ wget
 
 WORKDIR /tmp/
 RUN wget https://github.com/pramsey/pgsql-http/archive/refs/tags/v1.7.0.tar.gz 
-RUN tar zxvf v1.6.0.tar.gz
-WORKDIR /tmp/pgsql-http-1.6.0/    
+RUN tar zxvf v1.7.0.tar.gz
+WORKDIR /tmp/pgsql-http-1.7.0/    
 RUN make
 RUN make install
 
