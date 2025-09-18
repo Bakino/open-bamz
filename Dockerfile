@@ -20,7 +20,7 @@ RUN --mount=type=bind,source=./package.json,target=package.json \
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trixie-pgdg main" | tee  /etc/apt/sources.list.d/pgdg.list
 
-RUN apt-get update && apt-get install -y build-essential pkg-config python3 postgresql-client-16 
+RUN apt-get update && apt-get install -y build-essential pkg-config python3 postgresql-client-17 
 
 # Run the application as a non-root user.
 USER node
