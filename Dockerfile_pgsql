@@ -1,0 +1,18 @@
+ARG PG_VERSION=17.6
+ARG PLV8_VERSION=3.2.4
+ARG DEBIAN_VERSION=bookworm
+
+FROM sibedge/postgres-plv8:${PG_VERSION}-${PLV8_VERSION}-${DEBIAN_VERSION}
+
+USER root
+
+RUN apt-get update && apt-get install -y libc++-dev postgresql-server-dev-all libcurl4-openssl-dev make g++ wget
+
+WORKDIR /tmp/
+RUN wget https://github.com/pramsey/pgsql-http/archive/refs/tags/v1.7.0.tar.gz 
+RUN tar zxvf v1.6.0.tar.gz
+WORKDIR /tmp/pgsql-http-1.6.0/    
+RUN make
+RUN make install
+
+USER 1001
