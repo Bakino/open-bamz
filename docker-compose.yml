@@ -11,7 +11,7 @@ services:
       - "POSTGRES_PASSWORD=openbamz"
       - "POSTGRESQL_MAX_CONNECTIONS=1000"
     volumes:
-      - dev-open-bamz-db:/bitnami/postgresql
+      - dev-open-bamz-pg:/bitnami/postgresql
     healthcheck: 
       interval: 10s
       retries: 10
@@ -31,16 +31,33 @@ services:
       - "DB_PORT=5432"
       - "DB_NAME=_openbamz"
       - "DATA_DIR=/home/node/data"
+      - "PLUGINS_DIR=/home/node/plugins"
     volumes:
       - dev-open-bamz-data:/home/node/data
+      - ~/open-bamz-plugins:/home/node/plugins
     depends_on:
       - db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openbamz.rule=HostRegexp(`{host:[A-Za-z0-9-_]+.test3.bakino.fr}`)"
+      - "traefik.http.routers.openbamz.priority=5"
+      - "traefik.http.services.openbamz.loadbalancer.server.port=3000"
+      - "traefik.http.routers.openbamz.entrypoints=websecure"
+      - "traefik.http.routers.openbamz.tls.certresolver=mydnschallenge"
+      - "traefik.http.routers.openbamz.tls.domains[0].main=test3.bakino.fr"
+      - "traefik.http.routers.openbamz.tls.domains[0].sans=*.test3.bakino.fr"
+
     depends_on: 
       db: 
         condition: service_healthy
 
 volumes:
-  dev-open-bamz-db:
+  dev-open-bamz-pg:
     external: true
   dev-open-bamz-data:
     external: true
+
+networks:
+  default:
+    external:
+      name: traefik

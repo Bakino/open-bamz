@@ -1,10 +1,22 @@
 const { clearDatabase } = require("../graphql");
 const { deleteAppDirectory } = require("../init");
+const {appCache, hostnameCache} = require("../../appCache");
+
 
 module.exports = async (payload, {logger, query}) => {
     // This task is called when an application is deleted (in app table)
+
+    logger.info(`Removing application ${payload.database}`);
     
-    logger.info(`Received ${JSON.stringify(payload)}`);
+    // remove from caches
+    delete appCache[payload.database] ;
+
+    for(let [host, dbName] of Object.entries(hostnameCache)){
+        if(dbName===payload.database){
+            delete hostnameCache[host] ;
+        }
+    }
+
     await query(`DROP DATABASE IF EXISTS ${payload.database} WITH (FORCE)`);
     await query(`DROP OWNED BY ${payload.database}_admin CASCADE`);
     await query(`DROP ROLE IF EXISTS ${payload.database}_readonly`);

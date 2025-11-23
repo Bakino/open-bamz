@@ -1,15 +1,19 @@
 const logger = require("./logger");
 const express = require("express");
+const mime = require('mime-types')
 const bodyParser = require('body-parser')
 const path = require("path");
 const fs = require("fs");
-const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers } = require("./database/init");
+const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS } = require("./pluginManager");
 const graphql = require("./database/graphql");
 const { runQuery, runQueryMain, getDbClient } = require("./database/dbAccess");
 const { injectBamz } = require("./utils");
 const { initWebSocket, io } = require("./websocket");
+const {hostnameCache, appCache} = require("./appCache");
+const { extname } = require("node:path");
+const { createReadStream } = require("node:fs");
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -29,6 +33,7 @@ async function prepare() {
         logger.info("Create database");
         await createIfNotExist(mainDatabaseConnectionOptions);
         logger.info("Prepare database");
+        await createRolesIfNeeded(mainDatabaseConnectionOptions);
         await prepareSchema(mainDatabaseConnectionOptions, "_openbamz");
         await prepareMainRoles(mainDatabaseConnectionOptions);
         logger.info("Prepare database done");
@@ -60,80 +65,124 @@ async function start() {
     // Initialize plugins
     const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, io}) ;
 
+    // middleware to determine the application name from hostname or headers
+    app.use(async (req, res, next) => {
+        let appName = null ;
 
-    /**
-     * The application are served in /app/{appName}/
-     * The plugins are served in /plugin/{appName}
-     * 
-     * If the request is for an HTML file, we read the file, inject the bamz-lib and return the modified HTML
-     * Otherwise we just serve the static file
-     * 
-     */
-    app.use(["/app/*any", "/plugin/*any"],(req, res, next) => {
-        //FIXME: refactor appName extraction
-        let appName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\/app\/{0,1}/, "") ; ;
-        let slashIndex = appName.indexOf("/");
-        if(slashIndex !== -1){
-            appName = appName.substring(0, slashIndex) ;
+        // search in cache
+        if(hostnameCache[req.hostname]){
+            appName = hostnameCache[req.hostname] ;
         }
-        if(appName && appName !== process.env.DB_NAME){
-            if (req.originalUrl.toLowerCase().endsWith('.html') || req.originalUrl.endsWith('/') ) {
-                //'/app/plug/plugin/database-admin-basic'
-                let relativePath = null;
-                let basePath = null; 
-                let isPlugin = false;
-                if(req.baseUrl.startsWith("/app")){
-                    //file in app sources
-                    relativePath = req.baseUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
-                    basePath = path.join(process.env.DATA_DIR, "apps" ,appName, "public");
-                }else{
-                    //file in plugin
-                    isPlugin = true;
-                    let pluginName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\/app\//, "").replace(appName, "") .replace(/^\//, ""); 
-                    let slashIndex = pluginName.indexOf("/");
-                    if(slashIndex !== -1){
-                        pluginName = pluginName.substring(0, slashIndex) ;
-                    }
-                    //get base path from plugins data
-                    basePath = pluginsData[pluginName]?.frontEndFullPath
-                    relativePath = req.baseUrl.replace(`/plugin/${appName}/${pluginName}`, '');
-                }
-                if(!basePath){
-                    //no base path, maybe try to load a plugin that does not exists anymore
-                    return next() ;
-                }
-                let filePath = path.join(basePath, relativePath);
-                if(req.originalUrl.endsWith('/')){
-                    filePath = path.join(filePath, "index.html") ;
-                }
-                
-                fs.readFile(filePath, 'utf8', (err, data) => {
-                    if (err) { 
-                        //error reading file, continue with standard
-                        return next(); 
-                    }
-                    
-                    // Modify HTML content here
-                    let modifiedHtml = data;
-                    // Example modification: Inject a script tag
-                    modifiedHtml = injectBamz(modifiedHtml, appName, isPlugin) ;
-                    
-                    res.setHeader('Content-Type', 'text/html');
-                    res.end(modifiedHtml);
-                });
-            } else {
-                next();
+
+        if(!appName){
+            //search for the host in app table
+            let allApps = await runQueryMain(`SELECT code
+                FROM public.app
+                WHERE hosts @> $1::jsonb`, [JSON.stringify([{ hostname: req.hostname }])]) ;
+            if(allApps.rows.length>0){
+                appName = allApps.rows[0].code ;
+                hostnameCache[req.hostname] = appName ;
             }
-        }else{
-            next() ;
         }
+
+        if(!appName){
+            // if not found, get from header app-name
+            if(req.headers["app-name"]){
+                appName = req.headers["app-name"] ;
+            }
+        }
+
+        if(!appName){
+            // if not found, get from param ?appName=
+            if(req.query.appName){
+                appName = req.query.appName ;
+            }
+        }
+
+        if(appName){
+            if(!appCache[appName]){
+                //check that the app exists
+                let allApps = await runQueryMain(`SELECT *
+                    FROM public.app
+                    WHERE code = $1`, [appName]) ;
+                if(allApps.rows.length>0){
+                    appCache[appName] = allApps.rows[0] ;
+                }else{
+                    return res.end(`Application ${appName} not found`) ;
+                }
+            }
+        }
+
+        if(!appName){
+            // run the default app
+            appName = process.env.DB_NAME ;
+        }
+        
+        req.appName = appName ;
+        res.setHeader('app-name', appName) ;
+        next() ;
     });
+
+    function getAppPath(appName){
+        if(appName===process.env.DB_NAME){
+            return path.join(__dirname, "open-bamz-front");
+        }
+        return path.join(process.env.DATA_DIR, "apps" ,appName, "public");
+    }
+
+    // Middleware to search all HTML files or / requests and inject bamz-lib
+    app.get(/.*\.html$|\/$/, async (req, res, next) => {
+        let appName = req.appName ;
+        let relativePath = null;
+        let basePath = null; 
+        let isPlugin = false;
+        if(req.baseUrl.startsWith("/plugin")){
+            //file in plugin
+            isPlugin = true;
+            let pluginName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\//, ""); 
+            let slashIndex = pluginName.indexOf("/");
+            if(slashIndex !== -1){
+                pluginName = pluginName.substring(0, slashIndex) ;
+            }
+            //get base path from plugins data
+            basePath = pluginsData[pluginName]?.frontEndFullPath
+            relativePath = req.baseUrl.replace(`/plugin/${pluginName}`, '');
+        } else {
+            //file in app sources
+            relativePath = req.baseUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
+            basePath = getAppPath(appName);
+        }
+
+        if(!basePath){
+            //no base path, maybe try to load a plugin that does not exists anymore
+            return next() ;
+        }
+        let filePath = path.join(basePath, relativePath);
+        if(req.originalUrl.endsWith('/')){
+            filePath = path.join(filePath, "index.html") ;
+        }
+        
+        fs.readFile(filePath, 'utf8', (err, data) => {
+            if (err) { 
+                //error reading file, continue with standard
+                return next(); 
+            }
+            
+            // Modify HTML content here
+            let modifiedHtml = data;
+            // Example modification: Inject a script tag
+            modifiedHtml = injectBamz(modifiedHtml, appName, isPlugin) ;
+            
+            res.setHeader('Content-Type', 'text/html');
+            res.end(modifiedHtml);
+        });
+    }) ;
 
     //Register after the middleware to modify HTML
     for(let pluginDir of Object.keys(pluginsData)){
         //register static files of each plugin
         if(pluginsData[pluginDir].frontEndPath){
-            app.use(`/plugin/:appName/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
+            app.use(`/plugin/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
         }
 
         //register router of each plugin
@@ -145,25 +194,6 @@ async function start() {
 
     // Serve bamz-lib static files
     app.use(`/bamz-lib/`, express.static(path.join(__dirname, "lib-client")));
-
-    
-    // Server the default front-end application
-    let bamzHandler = null;
-    const viewzSsrImport = import("./plugins/viewz/viewzSsr.mjs");
-
-    app.use("/openbamz/", async (req, res, next)=>{
-        if(!bamzHandler){
-            let viewzSsr = await viewzSsrImport;
-            bamzHandler = await viewzSsr.generateSsrContent({ 
-                sourcePath: path.join(__dirname, "openbamz-front"),
-                htmlProcessors: []
-            })
-        }
-        let html = await bamzHandler(req) ;
-        if(!html){ return next() ; }
-        res.end(html) ;
-    });
-    app.use("/openbamz/", express.static(path.join(__dirname, "openbamz-front") ));
 
     // List of plugins
     app.get("/plugin_list", (req, res)=>{
@@ -182,10 +212,11 @@ async function start() {
     const graphqlServers = [] ;
 
     /**
-     * Dynamicly load the application GraphQL instance
+     * Dynamically load the application GraphQL instance
      */
-    app.use(["/graphql/*any", "/graphiql/*any", "/app/*any"], async (req, res, next)=>{
+    app.use(["/graphql/*any", "/graphiql/*any"], async (req, res, next)=>{
         // initialize graphql and static files serve
+        //let appName = req.appName ;
         let appName = req.baseUrl.replace(/^\/graph[i]{0,1}ql\//, "").replace(/^\/app\/{0,1}/, "") ; ;
         let slashIndex = appName.indexOf("/");
         if(slashIndex !== -1){
@@ -198,7 +229,6 @@ async function start() {
                 if(serv){
                     //add the handler to the list
                     graphqlServers.push(serv);
-                    app.use("/app/"+appName, express.static(path.join(process.env.DATA_DIR, "apps" ,appName, "public") ));
                 }
             }catch(err){
                 logger.error("Error while handling graphql request %o", err);
@@ -240,8 +270,38 @@ async function start() {
             //no handler processed the req, go to next
             next();
         }
-    })
-   
+    }) ;
+
+    app.use((req, res, next)=>{
+        const appName = req.appName ;
+        if(!appName){ 
+            return next() ;
+        }
+        let relativePath = req.originalUrl.replace(/^\//, "").replace(/\?.*$/, "");
+        if(relativePath === ""){
+            relativePath = "index.html" ;
+        }
+        const appFilePath = getAppPath(appName);
+
+        const filePath = path.join(appFilePath, relativePath);
+        //don't allow to access files outside the public directory
+        if(!filePath.startsWith(appFilePath)){
+            return next() ;
+        }
+        fs.stat(filePath, (err, stats) => {
+            if (err || !stats.isFile()) {
+                // File does not exist or is not a file
+                return next(); 
+            }
+
+            const type = mime.contentType(extname(filePath)) || 'application/octet-stream'
+
+            res.setHeader('Content-Type', type)
+
+            // Serve the file
+            createReadStream(filePath).pipe(res);
+        });
+    }); 
 
     // Create a Node HTTP server, mounting Express into it
     const server = createServer(app);

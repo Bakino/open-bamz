@@ -1,0 +1,124 @@
+<div class="vh-100 container-xl">
+  <div class="row h-100 justify-content-center">
+    <div class="col-xxl-6 col-12 col-xl-5 col-lg-8">
+      <div class="row mt-5 justify-content-between align-items-end mb-5">
+        <div
+          id="iqspi"
+          class="col-xxl-2 col-xl-2 col-lg-1 col-md-2 col-sm-2 col-2"
+        >
+          <a id="i6exl" z-link-type="inner" href="/" z-route="/">
+            <img src="images/icon.svg" id="iy5kz-2" class="w-100" />
+          </a>
+        </div>
+        <div class="col-12 col-xxl-12 col-xl-12 col-lg-12">
+          <h3 class="text-primary mb-0">Settings of app ${app}</h3>
+        </div>
+        <div class="col-12 col-xxl-12 col-xl-12 col-lg-12">
+          <div role="alert" z-show-if="error" class="alert alert-danger">
+            <div class="d-flex align-items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                role="img"
+                aria-label="Warning:"
+                class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2"
+              >
+                <path
+                  d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"
+                ></path>
+              </svg>
+              <div><span>${error}</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-xxl-12 col-xl-12 col-lg-12">
+          <h4 class="mt-5 text-primary">Installed plugins</h4>
+          <ul class="list-group mt-2">
+            <li z-bind="plugin of installedPlugins" id="ix686" class="list-group-item">
+              <div id="il2ja" class="d-flex">
+                <div id="iu069">${plugin.name}</div>
+                <div id="irvjl" class="ms-auto text-primary">
+                  ${plugin.id}
+                </div>
+              </div>
+              <div id="ibxl8" class="d-flex">
+                <div id="i07wc">
+                  <span id="iccow" class="text-secondary">
+                    ${plugin.description}
+                  </span>
+                </div>
+                <div id="izbcg" class="ms-auto text-primary">
+                  <button
+                    type="button"
+                    id="i7xpw"
+                    z-on-click="view.deletePlugin(getData())"
+                    class="btn btn-outline-danger btn-sm"
+                  >
+                    <span id="ibzii">Remove plugin</span>
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div id="i4w6v" class="col-12 col-xxl-12 col-xl-12 col-lg-12">
+          <div id="accordionExample" class="accordion mt-3">
+            <div id="ikpgg" class="accordion-item">
+              <h2 id="ifm0c" class="accordion-header">
+                <button
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseOne"
+                  aria-expanded="false"
+                  aria-controls="collapseOne"
+                  id="i6jpj"
+                  class="accordion-button collapsed"
+                >
+                  Add a plugin
+                </button>
+              </h2>
+              <div
+                id="collapseOne"
+                data-bs-parent="#accordionExample"
+                class="accordion-collapse collapse"
+              >
+                <div id="i7fxv" class="accordion-body">
+                  <div class="d-flex">
+                    <div>
+                      <select
+                        type="text"
+                        z-bind="pluginToAdd"
+                        id="iu1tr"
+                        class="form-control form-select"
+                      >
+                        <option></option>
+                        <option
+                          z-bind="plugin of notInstalledPlugins"
+                          value="${plugin.id}"
+                        >
+                          ${plugin.description}
+                          (${plugin.id})
+                        </option>
+                      </select>
+                    </div>
+                    <div class="ms-auto">
+                      <button
+                        type="button"
+                        z-on-click="view.addPlugin()"
+                        class="btn btn-primary"
+                      >
+                        <span>Add plugin</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

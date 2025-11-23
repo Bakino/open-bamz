@@ -1,0 +1,15 @@
+{
+    "routing": "HASH",
+    "viewsPath": "views",
+    "routes": [
+        { "url": "/create_app", "path": "create_app" },
+        { "url": "/login{/:url}", "path": "login" },
+        { "url": "/create_account", "path": "create_account" },
+        { "url": "/", "path": "root" },
+        { "url": "/settings/:app", "path": "settings" }
+    ],
+    "extensions": [
+        { "url" : "extensions/open-bamz.mjs"}
+    ]
+}
+    

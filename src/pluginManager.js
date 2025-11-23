@@ -3,9 +3,10 @@ const { readdir, readFile } = require('node:fs/promises');
 const logger = require("./logger");
 const { getDbClient, hasPlugin } = require("./database/dbAccess");
 const { access, constants } = require("fs/promises");
+const { injectBamz } = require("./utils") ;
 let pluginsData = {} ;
 
-const pluginDirectories = [path.join(__dirname, "plugins")] ;
+const pluginDirectories = [process.env.PLUGINS_DIR] ;
 
 const PLUGIN_CACHE = {} ;
 
@@ -131,6 +132,7 @@ let addPluginLoadListener = (pluginName, listener)=>{
 async function initPlugins(params){
     pluginsData = {} ;
     let pluginsToLoad = [];
+    console.log(pluginDirectories)
     for(let dir of pluginDirectories){
         let subdirs = (await readdir(dir, { withFileTypes: true }))
                 .filter(dirent => dirent.isDirectory())
@@ -159,10 +161,10 @@ async function initPlugins(params){
             PLUGIN_CACHE[appName][pluginToLoad.id] = pluginInstalled ;
             return pluginInstalled ;
         }
-        const onPluginLoad = async function (listener){
+        const loadPluginData = async function (listener){
             addPluginLoadListener(pluginToLoad.id, listener) ;
         }
-        pluginsData[pluginToLoad.id] = await pluginToLoad.plugin.initPlugin({contextOfApp, onPluginLoad, hasCurrentPlugin, ...params});
+        pluginsData[pluginToLoad.id] = await pluginToLoad.plugin.initPlugin({contextOfApp, loadPluginData, hasCurrentPlugin, injectBamz , ...params});
         if(pluginsData[pluginToLoad.id].frontEndPath){
             pluginsData[pluginToLoad.id].frontEndFullPath = path.join(pluginToLoad.path ,pluginsData[pluginToLoad.id].frontEndPath);
         }
@@ -305,7 +307,7 @@ const BASE_MENU = [
  */
 function middlewareMenuJS(req, res){
     (async ()=>{
-        let appName = req.query.appName ;
+        let appName = req.appName ;
         /*let options = {
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
@@ -317,7 +319,12 @@ function middlewareMenuJS(req, res){
         
         //const client = await getDbClient(options) ;
         try{
-            let contextApp = await contextOfApp(appName);
+            let contextApp = null;
+            if(appName !== process.env.DB_NAME){
+                contextApp = await contextOfApp(appName);
+            }else{
+                contextApp = { pluginsData : {}}  ;
+            }
             /*let results;
             try{
                 results = await client.query("SELECT plugin_id FROM openbamz.plugins");  
@@ -362,7 +369,7 @@ function middlewareMenuJS(req, res){
             let jsSource = await readFile(path.join(__dirname, "menu-front", "adminMenu.js"), {encoding: "utf8"}) ;
             res.setHeader("Content-Type", "application/javascript") ;
             res.end(`
-//script for ${req.query.appName}
+//script for ${req.appName}
 
 window.document.body.style.transition = "opacity 1s";  
 
@@ -381,7 +388,7 @@ ${jsSource}
             `)
         }catch(err){
             logger.warn("Can't load plugin %o", err);
-            res.end(`//script for ${req.query.appName}
+            res.end(`//script for ${req.appName}
 `)
         }finally{
            // client.release() ;

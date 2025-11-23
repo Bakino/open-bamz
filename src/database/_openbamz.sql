@@ -163,7 +163,7 @@ end;
 $$ language plpgsql strict security definer;
 
 -- function create account
-DROP FUNCTION create_account(text,text,text);
+DROP FUNCTION IF EXISTS create_account(text,text,text);
 create or replace function public.create_account(
   user_email text,
   name text,
@@ -189,7 +189,7 @@ begin
 end;
 $$ language plpgsql strict security definer;
 
-DROP FUNCTION check_account_exists(text);
+DROP FUNCTION  IF EXISTS check_account_exists(text);
 create or replace function public.check_account_exists(
   user_email text
 )
@@ -239,11 +239,14 @@ CREATE TABLE IF NOT EXISTS public.app(
   code VARCHAR(64) PRIMARY KEY,
   name VARCHAR(64),
   owner UUID,
+  hosts JSONB NOT NULL DEFAULT '[]'::jsonb, -- [ { hostname }, ... ]
   admins JSONB NOT NULL DEFAULT '[]'::jsonb, -- [ { _id, email, name }, ... ]
   FOREIGN KEY(owner) 
        REFERENCES private.account(_id)
        ON DELETE CASCADE
 ) ;
+
+CREATE INDEX IF NOT EXISTS idx_app_hosts ON public.app USING gin (hosts);
 
 -- check user right
 alter table public.app enable row level security;
@@ -252,6 +255,8 @@ DROP POLICY  IF EXISTS  select_app ON public.app;
 DROP POLICY  IF EXISTS  update_app ON public.app;
 DROP POLICY  IF EXISTS  delete_app ON public.app;
 DROP POLICY  IF EXISTS  insert_app ON public.app;
+
+
 
 -- owner and admins can read the record
 create policy select_app on public.app for select to normal_user
@@ -342,6 +347,19 @@ LANGUAGE "plv8" SECURITY DEFINER;
 
 CREATE OR REPLACE TRIGGER app_update_admins
     BEFORE INSERT OR UPDATE
+    ON app FOR EACH ROW
+    EXECUTE PROCEDURE app_update_admins();
+
+
+-- trigger, on create or update application, update hostname cache
+CREATE OR REPLACE FUNCTION app_update_hostname_cache() RETURNS TRIGGER AS
+$$
+    plv8.execute(`SELECT graphile_worker.add_job('updateHostnameCache', $1)`, [{previousHosts: OLD ? OLD.hosts : null, newHosts: NEW.hosts, database: NEW.code}]);
+$$
+LANGUAGE "plv8" SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER app_update_admins
+    AFTER INSERT OR UPDATE
     ON app FOR EACH ROW
     EXECUTE PROCEDURE app_update_admins();
 

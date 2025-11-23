@@ -57,6 +57,37 @@ async function prepareSchema(options, schemaName){
     }
 }
 
+async function createRolesIfNeeded(options){
+    const client = await getDbClient(options) ;
+    try{
+        const roles = ["normal_user", "anonymous"] ;
+        for(let role of roles){
+            let result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [role]);
+            if(result.rows.length === 0){
+                logger.info(`create ROLE ${role}`);
+                await client.query(`CREATE ROLE ${role}
+                    NOSUPERUSER
+                    NOCREATEDB
+                    NOCREATEROLE
+                    NOREPLICATION`)
+
+            } 
+        }
+        let roleAdmin = "admin";
+        let result = await client.query("SELECT 1 FROM pg_catalog.pg_roles WHERE rolname =  $1", [roleAdmin]);
+        if(result.rows.length === 0){
+            logger.info(`create ROLE ${roleAdmin}`);
+            await client.query(`CREATE ROLE ${roleAdmin}
+                NOSUPERUSER
+                CREATEDB
+                CREATEROLE
+                REPLICATION`)
+
+        } 
+    }finally{
+        client.release() ;
+    }
+}
 /**
  * Prepare the main roles in the database
  * @param {*} options 
@@ -433,7 +464,7 @@ async function startAllWorkers(options){
         let opts = { ...options, database: app.code}
         startWorkers(opts).catch((err) => {
             logger.warn(err);
-            process.exit(1);
+            //process.exit(1);
         });
     }
 }
@@ -510,6 +541,7 @@ async function deleteAppDirectory(options) {
 
 module.exports.createIfNotExist = createIfNotExist;
 module.exports.prepareSchema = prepareSchema;
+module.exports.createRolesIfNeeded = createRolesIfNeeded;
 module.exports.prepareMainRoles = prepareMainRoles;
 module.exports.startWorkers = startWorkers;
 module.exports.startAllWorkers = startAllWorkers;

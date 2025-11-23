@@ -1,0 +1,7 @@
+[
+    { "route": "/create_app", "path": "views/create_app" },
+    { "route": "/login/:url?", "path": "views/login" },
+    { "route": "/create_account", "path": "views/create_account" },
+    { "route": "/", "path": "views/root" },
+    { "route": "/settings/:app", "path": "views/settings" }
+]

@@ -1,0 +1,49 @@
+<div class="vh-100 container-xl">
+  <div class="row h-100 justify-content-center">
+    <div class="col-xxl-6 col-12 col-xl-5 col-lg-8">
+      <form>
+        <div class="row mt-5">
+          <div class="col-xxl-2 col-4">
+            <a id="ixo97" z-link-type="inner" z-route="/" href="/">
+              <img src="images/icon.svg" id="ijjm6" class="w-100 mb-3" />
+            </a>
+          </div>
+          <div class="col col-xxl-12 col-12">
+            <h3 class="text-primary">Create a new application</h3>
+            <div role="alert" z-show-if="failed" class="alert alert-danger">
+              <div class="container">
+                <div class="row">
+                  <div class="col-12">
+                    <span>The creation failed, please contact support</span>
+                  </div>
+                  <div class="col-12"><span>${error}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xxl-12 col-lg-12">
+            <div class="mb-3">
+              <label for="formInput1" class="form-label">Name</label>
+              <input
+                type="text"
+                id="formInput1"
+                required=""
+                z-bind="name"
+                class="form-control"
+              />
+            </div>
+          </div>
+          <div class="col-12 col-xxl-12 col-lg-12">
+            <button
+              type="button"
+              z-on-click="view.createApp()"
+              class="btn w-100 btn-primary"
+            >
+              <span>Create application</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

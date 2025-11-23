@@ -19,7 +19,7 @@ The Open BamZ code base is delivered with devcontainer settings. As a requiremen
 
 Prepare 2 docker volume : 
 ```
-docker volume create dev-open-bamz-db
+docker volume create dev-open-bamz-pg
 docker volume create dev-open-bamz-data
 ```
 

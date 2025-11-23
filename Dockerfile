@@ -28,6 +28,8 @@ USER node
 
 RUN mkdir /home/node/data
 VOLUME /home/node/data
+RUN mkdir /home/node/plugins
+VOLUME /home/node/plugins
 
 # Copy the rest of the source files into the image.
 COPY ./src .
