@@ -14,6 +14,9 @@ const { initWebSocket, io } = require("./websocket");
 const {hostnameCache, appCache} = require("./appCache");
 const { extname } = require("node:path");
 const { createReadStream } = require("node:fs");
+const cookieParser = require('cookie-parser');
+const {authRoutes, jwtMiddleware} = require('./auth');
+
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV 
 
@@ -55,12 +58,16 @@ async function start() {
     const app = express()
     const port = 3000
 
+    app.use(cookieParser());
+
+    app.use(jwtMiddleware) ;
+
     // parse application/json
     app.use(bodyParser.json({limit:'50mb'}));
     // parse application/x-www-form-urlencoded
     app.use(bodyParser.urlencoded({ limit:'50mb', extended: false }))
 
-
+    app.use('/auth', authRoutes);
     
     // Initialize plugins
     const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, io}) ;
@@ -136,17 +143,17 @@ async function start() {
         let relativePath = null;
         let basePath = null; 
         let isPlugin = false;
-        if(req.baseUrl.startsWith("/plugin")){
+        if(req.originalUrl.startsWith("/plugin")){
             //file in plugin
             isPlugin = true;
-            let pluginName = req.baseUrl.replace(/^\/plugin\//, "").replace(/^\//, ""); 
+            let pluginName = req.originalUrl.replace(/^\/plugin\//, "").replace(/\?.*$/,"").replace(/^\//, ""); 
             let slashIndex = pluginName.indexOf("/");
             if(slashIndex !== -1){
                 pluginName = pluginName.substring(0, slashIndex) ;
             }
             //get base path from plugins data
             basePath = pluginsData[pluginName]?.frontEndFullPath
-            relativePath = req.baseUrl.replace(`/plugin/${pluginName}`, '');
+            relativePath = req.originalUrl.replace(`/plugin/${pluginName}`, '').replace(/\?.*$/,"");
         } else {
             //file in app sources
             relativePath = req.baseUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
@@ -158,7 +165,7 @@ async function start() {
             return next() ;
         }
         let filePath = path.join(basePath, relativePath);
-        if(req.originalUrl.endsWith('/')){
+        if(req.originalUrl.replace(/\?.*$/,"").endsWith('/')){
             filePath = path.join(filePath, "index.html") ;
         }
         
@@ -225,6 +232,19 @@ async function start() {
         if(appName && appName !== process.env.DB_NAME){
             // get the graphql instance
             try{
+                if(!appCache[appName]){
+                    //check that the app exists
+                    let allApps = await runQueryMain(`SELECT *
+                        FROM public.app
+                        WHERE code = $1`, [appName]) ;
+                    if(allApps.rows.length>0){
+                        appCache[appName] = allApps.rows[0] ;
+                    }else{
+                        //app not found
+                        return next() ;
+                    }
+                }
+                
                 let serv = await graphql.initDatabase(appName) ;
                 if(serv){
                     //add the handler to the list

@@ -1,36 +1,3 @@
-function underscoreToCamelCase(str) {
-    // Handle empty or undefined string
-    if (!str) return str;
-
-    // Check if string starts with underscore and store it
-    const startsWithUnderscore = str.startsWith('_');
-    
-    // Split the string by underscores and convert each word
-    const converted = str
-        .split('_')
-        .filter(word => word) // Remove empty strings from split
-        .map((word, index) => {
-            // Convert word to lowercase first
-            word = word.toLowerCase();
-            
-            // Handle numbers followed by letters within the word
-            word = word.replace(/(\d)([a-z])/g, (match, number, letter) => {
-                return number + letter.toUpperCase();
-            });
-            
-            // Keep first word in lowercase unless it starts with a number
-            if (index === 0) {
-                return word;
-            }
-            // Capitalize first letter of other words
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        })
-        .join('');
-    
-    // Add leading underscore back if it existed in original string
-    return startsWithUnderscore ? '_' + converted : converted;
-}
-
 function graphqlObjectToHierarchy(obj){
     let str = "" ;
     for(let [k, value] of Object.entries(obj)){
@@ -56,13 +23,10 @@ const openbamz = {
             "Content-Type": "application/json",
             Accept: "application/json",
         } ;
-        let jwt = localStorage.getItem("openbamz-jwt") ;
-        if(jwt){
-            headers.Authorization = "Bearer "+jwt
-        }
         let result = await fetch("/graphql/"+appName, {
             method: "POST",
             headers: headers,
+            credentials: "include",
             body: JSON.stringify({ query: query }),
         }) ;
         let jsonResult = await result.json() ;
@@ -93,107 +57,36 @@ const openbamz = {
         }
     },
     authenticate: async function (email, password){
-        localStorage.removeItem("openbamz-jwt") ;
-        let result = await window.openbamz.queryGraphql(`mutation auth {
-authenticate(input: {email: "${email}", password: "${password}"}) {
-result
-}
-}`, "_openbamz");
-        let token = result?.data?.authenticate?.result;
-        if(token){
-            localStorage.setItem("openbamz-jwt", token) ;
-            return true
-        }else{
-            return false;
-        }
-    },
-    fetchAuth: async function(url, options){
-        try{
-            const jwt = localStorage.getItem("openbamz-jwt") ;
-            if(jwt){
-                if(!options){
-                    options = {} ;
-                }
-                if(!options.headers){
-                    options.headers = {} ;
-                }
-                if(!options.headers.Authorization && !options.headers.authorization){
-                    options.headers.Authorization = "Bearer "+jwt ;
-                }
-            }
-        }catch(err){
-            console.warn("Can't access to local storage", err) ;
-        }
-        return fetch(url, options) ;
-    },
-    fetchPostJson: async function(url, body, options){
-        try{
-            if(!options){
-                options = {} ;
-            }
-            options.method = "POST" ;
-            if(!options.headers){
-                options.headers = {} ;
-            }
-            options.headers["Accept"] =  'application/json';
-            options.headers["Content-Type"] =  'application/json';
-            const jwt = localStorage.getItem("openbamz-jwt") ;
-            if(jwt){
-                if(!options.headers.Authorization && !options.headers.authorization){
-                    options.headers.Authorization = "Bearer "+jwt ;
-                }
-            }
-            options.body = JSON.stringify(body) ;
-        }catch(err){
-            console.warn("Can't access to local storage", err) ;
-        }
-        return fetch(url, options) ;
-    },
-    get: async function(options, queryParam){
-        if(typeof options === "string"){
-            options = {url: options, query: queryParam} ;
-        }
-        let {url, query} = options ;
-        if(query){
-            if(url.includes("?")){
-                url += "&" ;
-            }else{
-                url += "?" ;
-            }
-            url += Object.keys(query).map(k=>`${k}=${query[k]}`).join("&") ;
-        }
-        let response = await this.fetchAuth(url);
+        let response = await fetch("/auth/login", {
+            body: JSON.stringify({ email, password }),
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+        })
         if(!response.ok){
-            throw await response.text() ;
+            return false ;
         }
-        return await response.json() ;
-    },
-    post: async function(options, bodyParam){
-        if(typeof options === "string"){
-            options = {url: options, body: bodyParam} ;
+        try{
+            response = await response.json() ;
+            return response.ok ;
+        }catch(err){
+            console.warn("Error parsing JSON response", err) ;
+            return false ;
         }
-        let {url, body} = options ;
-        let response = await this.fetchPostJson(url, body);
-        if(!response.ok){
-            throw await response.text() ;
-        }
-        return await response.json() ;
-    },
-    logout: async function (){
-        localStorage.removeItem("openbamz-jwt") ;
     },
     refreshAuth: async function (){
-        let result = await window.openbamz.queryGraphql(`mutation refresh {
-refresh_auth(input: {}) {
-    result
-}
-}`, "_openbamz");
-        let token = result?.data?.refresh_auth?.result;
-        if(token){
-            localStorage.setItem("openbamz-jwt", token) ;
-            return true
-        }else{
-            return false;
+        let response = await fetch("/auth/refresh", {
+            method: "POST",
+            credentials: "include"
+        });
+        return response.ok ;
+    },
+    logout: async function (){
+        let response = await fetch("/auth/logout", { method: "POST", credentials: "include" }) ;
+        if(!response.ok){
+            console.warn("Error during logout", response.statusText) ;
         }
     },
     createAccount: async function (email, password, name){

@@ -3,9 +3,6 @@
 /* This file in injected to app HTML to display the Open BamZ admin menu on the top */
 
 async function isAdmin(){
-    let jwt = localStorage.getItem("openbamz-jwt") ;
-    if(!jwt){ return false ; }
-       
     let result = await fetch("/graphql/_openbamz", {
         method: "POST",
         headers: {

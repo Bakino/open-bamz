@@ -360,8 +360,8 @@ function middlewareMenuJS(req, res){
                         libs = [libs] ;
                     }
                     for(let lib of libs){
-                        pluginLib.push(`window.BAMZ_PLUGINS["${plugin}"] = (await import('/plugin/${req.query.appName}/${plugin}/${lib}')) ;`)
-    //                     pluginLib.push(`import * as BAMZ_PLUGIN_${plugin.toUpperCase().replaceAll("-", "_")} from '/plugin/${req.query.appName}/${plugin}/${lib}';
+                        pluginLib.push(`window.BAMZ_PLUGINS["${plugin}"] = (await import('/plugin/${plugin}/${lib}')) ;`)
+    //                     pluginLib.push(`import * as BAMZ_PLUGIN_${plugin.toUpperCase().replaceAll("-", "_")} from '/plugin/${plugin}/${lib}';
     // window.BAMZ_PLUGINS["${plugin}"] = BAMZ_PLUGIN_${plugin.toUpperCase().replaceAll("-", "_")}`);
                     }
                 }

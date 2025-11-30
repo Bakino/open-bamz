@@ -53,7 +53,7 @@ async function runMainGraphql(query, headers) {
  */
 async function checkAppAccessMiddleware(req, res, appName, jwtToken) {
     if(!appName){
-        appName = req.params.appName ;
+        appName = req.appName || req.params.appName ;
     }
     if(!jwtToken){
         jwtToken = req.headers.authorization ;

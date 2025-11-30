@@ -72,79 +72,86 @@ CREATE OR REPLACE TRIGGER account_drop_user
     EXECUTE PROCEDURE account_drop_user();
 
 
+CREATE TABLE IF NOT EXISTS private.session (
+    _id uuid primary key DEFAULT gen_random_uuid(),
+    account_id uuid REFERENCES private.account(_id) ON DELETE CASCADE,
+    create_time timestamp without time zone DEFAULT now(),
+    token varchar(1024) UNIQUE,
+    revoked boolean DEFAULT false,
+    expire_time timestamp without time zone
+) ;
+
 ------- JWT auth system --------
 --------------------------------
 
 -- Prepare JWT token type
 DROP TYPE IF EXISTS public.jwt_token CASCADE;
-create type public.jwt_token as (
-  role varchar,
-  exp integer,
-  id uuid,
-  login varchar,
-  email varchar
-);
+-- create type public.jwt_token as (
+--   role varchar,
+--   exp integer,
+--   id uuid,
+--   login varchar,
+--   email varchar
+-- );
 
 -- function authenticate
-create or replace function public.authenticate(
+DROP FUNCTION IF EXISTS public.authenticate(text,text);
+create function public.authenticate(
   email text,
   password text
 )
-returns public.jwt_token
+returns JSON
 as $$
-declare
-  account private.account;
-begin
-  select a.* into account
-    from private.account as a
-    where a.email = authenticate.email;
-
-  if account.password_hash = crypt(password, account.password_hash) then
-    return (
-      account._id,
-      extract(epoch from now() + interval '7 days'),
-      account._id,
-      account.email,
-      account.email
-    )::public.jwt_token;
-  else
+  let result = plv8.execute(`SELECT * FROM private.account WHERE email = $1`, [email]);
+  let account = result[0];
+  
+  if(!account){
     return null;
-  end if;
-end;
-$$ language plpgsql strict security definer;
+  }
+  
+  let cryptResult = plv8.execute(`SELECT crypt($1, $2) as crypted`, [password, account.password_hash]);
+  
+  if(cryptResult[0].crypted === account.password_hash){
+    account.password_hash = '';
+    return account;
+  }
+  
+  return null;
+$$
+LANGUAGE "plv8" SECURITY DEFINER;
 
 --refresh JWT token (get account from current token and create a new one)
-create or replace function public.refresh_auth()
-returns public.jwt_token
-as $$
-declare
-  account private.account;
-begin
+-- create or replace function public.refresh_auth()
+-- returns public.jwt_token
+-- as $$
+-- declare
+--   account private.account;
+-- begin
 
-  --RAISE WARNING 'ROLE ????(%)', current_setting('role', true);
+--   --RAISE WARNING 'ROLE ????(%)', current_setting('role', true);
 
-  select a.* into account
-    from private.account as a
-    where a._id::varchar = current_setting('role', true)::varchar;
+--   select a.* into account
+--     from private.account as a
+--     where a._id::varchar = current_setting('role', true)::varchar;
 
 
-  --RAISE WARNING 'ACCOUNT ????(%)', account._id;
+--   --RAISE WARNING 'ACCOUNT ????(%)', account._id;
 
-  if account._id is not null then
-    return (
-      account._id,
-      extract(epoch from now() + interval '7 days'),
-      account._id,
-      account.email,
-      account.email
-    )::public.jwt_token;
-  else
-    return null;
-  end if;
-end;
-$$ language plpgsql strict security definer;
+--   if account._id is not null then
+--     return (
+--       account._id,
+--       extract(epoch from now() + interval '7 days'),
+--       account._id,
+--       account.email,
+--       account.email
+--     )::public.jwt_token;
+--   else
+--     return null;
+--   end if;
+-- end;
+-- $$ language plpgsql strict security definer;
 
--- function create account
+-- function read account
 create or replace function public.read_account()
 returns private.account
 as $$

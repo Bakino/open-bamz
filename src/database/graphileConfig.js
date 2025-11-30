@@ -1,6 +1,6 @@
 const { PostGraphileAmberPreset } = require("postgraphile/presets/amber");
 const { PostGraphileConnectionFilterPreset } = require("postgraphile-plugin-connection-filter");
-const { PgLazyJWTPreset } = require("postgraphile/presets/lazy-jwt");
+//const { PgLazyJWTPreset } = require("postgraphile/presets/lazy-jwt");
 //const { defaultMaskError } = require("postgraphile/grafserv");
 
 /**
@@ -60,16 +60,16 @@ const { makePgService } = require("postgraphile/adaptors/pg");
 
 //Configuration for the main database
 const mainDbPreset = {
-    extends: [PostGraphileAmberPreset, PgLazyJWTPreset, PostGraphileConnectionFilterPreset],
+    extends: [PostGraphileAmberPreset, /*PgLazyJWTPreset,*/ PostGraphileConnectionFilterPreset],
     plugins: [IdToNodeIdPlugin],
     disablePlugins: ['PgIndexBehaviorsPlugin'],
     pgServices: [makePgService({ 
         connectionString: `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
         schemas: ["public"],
     })],
-    gather: {
-        pgJwtTypes: "public.jwt_token",
-    },
+    // gather: {
+    //     pgJwtTypes: "public.jwt_token",
+    // },
     grafserv: { 
         watch: true,
         graphqlPath: `/graphql/${process.env.DB_NAME}`,
@@ -85,11 +85,15 @@ const mainDbPreset = {
     },
     grafast: {
         context(requestContext, args) {
+          let role = "anonymous";
+          const req = requestContext.expressv4?.req;
+          if(req.user && req.user.role){
+              role = req.user.role ;
+          }
           return {
             pgSettings: {
-              role: "anonymous",
-              // JWT may override the role:
               ...args.contextValue?.pgSettings,
+              role,
             },
           };
         },
@@ -99,7 +103,7 @@ const mainDbPreset = {
 // Create configuration for app database
 function createAppPreset(options){
     return {
-        extends: [PostGraphileAmberPreset, PgLazyJWTPreset, PostGraphileConnectionFilterPreset],
+        extends: [PostGraphileAmberPreset,/* PgLazyJWTPreset,*/ PostGraphileConnectionFilterPreset],
         plugins: [IdToNodeIdPlugin],
         disablePlugins: ['PgIndexBehaviorsPlugin'],
         pgServices: [makePgService({ 
@@ -109,9 +113,9 @@ function createAppPreset(options){
             superuserConnectionString: `postgres://${options.superuser}:${options.superpassword}@${options.host}:${options.port}/${options.database}`,
             schemas: options.schemas??["public", "openbamz"],
         })],
-        gather: {
-            pgJwtTypes: "public.jwt_token",
-        },
+        // gather: {
+        //     pgJwtTypes: "public.jwt_token",
+        // },
         grafserv: { 
             watch: true,
             graphqlPath: `/graphql/${options.database}`,
@@ -125,7 +129,7 @@ function createAppPreset(options){
             },
         },
         schema: {
-            pgJwtSecret: process.env.JWT_SECRET,
+            //pgJwtSecret: process.env.JWT_SECRET,
             //recommended options to avoid expensive filter operation
             connectionFilterComputedColumns: false,
             connectionFilterSetofFunctions: false,
@@ -133,11 +137,15 @@ function createAppPreset(options){
         },
         grafast: {
             context(requestContext, args) {
+              let role = "anonymous";
+              const req = requestContext.expressv4?.req;
+              if(req.user && req.user.role){
+                  role = req.user.role ;
+              }
               return {
                 pgSettings: {
-                  role: "anonymous",
-                  // JWT may override the role:
                   ...args.contextValue?.pgSettings,
+                  role: role,
                   //server side call can override the role
                   ...args.contextValue?.forceRole,
                 },
