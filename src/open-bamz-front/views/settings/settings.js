@@ -9,7 +9,7 @@ view.loader = async ()=>{
         }
     }`, view.route.params.app)
 
-    let pluginListResponse = await window.openbamz.fetchAuth(`/plugin_list`);
+    let pluginListResponse = await fetch(`/plugin_list`);
     let pluginList = await pluginListResponse.json() ;
     let installedPlugins = plugins?.data?.all_openbamz_plugins?.nodes?.map(p=>pluginList.find(plugin=>plugin.id === p.plugin_id));
     let notInstalledPlugins = pluginList.filter(p=>!installedPlugins.some(plugin=>plugin.id === p.id)) ;

@@ -87,13 +87,15 @@ const mainDbPreset = {
         context(requestContext, args) {
           let role = "anonymous";
           const req = requestContext.expressv4?.req;
-          if(req.user && req.user.role){
+          if(req && req.user && req.user.role){
               role = req.user.role ;
           }
           return {
             pgSettings: {
               ...args.contextValue?.pgSettings,
               role,
+              //server side call can override the role
+              ...args.contextValue?.forceRole,
             },
           };
         },
@@ -139,7 +141,7 @@ function createAppPreset(options){
             context(requestContext, args) {
               let role = "anonymous";
               const req = requestContext.expressv4?.req;
-              if(req.user && req.user.role){
+              if(req && req.user && req.user.role){
                   role = req.user.role ;
               }
               return {

@@ -26,13 +26,18 @@ function getMainGraphql() {
  * @param {*} headers 
  * @returns 
  */
-async function runMainGraphql(query, headers) {
+async function runMainGraphql(query, role) {
     const { schema, resolvedPreset } = await (await getMainGraphql()).getSchemaResult();
     const { data, errors } = await grafast({
         schema,
         resolvedPreset,
         requestContext: {
-            node: { req: { headers: headers } }
+            node: { req: { headers: {} } }
+        },
+        contextValue: {
+            forceRole: role?{
+                role: role
+            }:undefined
         },
         source: query,
         variableValues: {},
@@ -51,18 +56,16 @@ async function runMainGraphql(query, headers) {
  * @param {*} jwtToken 
  * @returns 
  */
-async function checkAppAccessMiddleware(req, res, appName, jwtToken) {
+async function checkAppAccessMiddleware(req, res, appName) {
     if(!appName){
         appName = req.appName || req.params.appName ;
     }
-    if(!jwtToken){
-        jwtToken = req.headers.authorization ;
-    }
     try{
         // Check user has proper authorization
-        await checkAppAccess(appName, jwtToken) ;
+        await checkAppAccess(appName, req.user?.role);
         return true;
     }catch(err){
+        console.log("checkAppAccessMiddleware error", err) ;
         res.status(err.statusCode??500).json(err);
         return false;
     }
@@ -74,9 +77,9 @@ async function checkAppAccessMiddleware(req, res, appName, jwtToken) {
  * @param {*} jwtToken 
  * @returns 
  */
-async function checkAppAccess(appName, jwtToken) {
-    if(!jwtToken){ throw { statusCode: 401, message: "No token" } ; }
-    let result = await runMainGraphql(`query { app_by_code(code: "${appName}") { code } }`, { authorization: "Bearer " + jwtToken.replace(/^Bearer/, "").trim() });
+async function checkAppAccess(appName, role) {
+    if(!role){ throw { statusCode: 401, message: "No token" } ; }
+    let result = await runMainGraphql(`query { app_by_code(code: "${appName}") { code } }`, role);
 
     if(result.app_by_code?.code === appName){
         return true;

@@ -71,6 +71,7 @@ router.post('/login', express.json(), async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: 'lax',
+        domain: process.env.COOKIE_DOMAIN || ".test3.bakino.fr",
         maxAge: 15 * 60 * 1000
     });
 
@@ -78,6 +79,7 @@ router.post('/login', express.json(), async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: 'lax',
+        domain: process.env.COOKIE_DOMAIN || ".test3.bakino.fr",
         maxAge: 30 * 24 * 3600 * 1000
     });
 
