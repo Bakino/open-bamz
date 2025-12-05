@@ -6,6 +6,7 @@ const fs = require('fs-extra');
 const { getDbClient, runQueryMain } = require("./dbAccess");
 const { dynamicImport, clearCache } = require("../pluginManager");
 const { Client } = require('pg');
+const { appFileSystems } = require("../appFileSystems");
 
 /**
  * Create the database if it does not exist
@@ -190,7 +191,7 @@ async function preparePlugins(options){
             let plugin = await dynamicImport(pluginRecord.plugin_id);
             if(!plugin){ continue ; }
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
-            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
+            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems});
         }
     }finally{
         client.release() ;
@@ -229,7 +230,7 @@ async function addPlugin(options, pluginName){
             }
             
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
-            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
+            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems});
         }else{
             logger.warn("Unknown plugin "+pluginName) ;
         }
@@ -249,7 +250,8 @@ async function removePlugin(options, pluginName){
         await clearCache(options.database);
         let plugin = await dynamicImport(pluginName);
         if(plugin){
-            await plugin.cleanDatabase({client});
+            const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
+            await plugin.cleanDatabase({client, options, filesDirectory, appFileSystems});
         }
     }finally{
         client.release() ;

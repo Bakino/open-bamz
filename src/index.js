@@ -156,7 +156,7 @@ async function start() {
             relativePath = req.originalUrl.replace(`/plugin/${pluginName}`, '').replace(/\?.*$/,"");
         } else {
             //file in app sources
-            relativePath = req.baseUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
+            relativePath = req.originalUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
             basePath = getAppPath(appName);
         }
 
@@ -168,21 +168,19 @@ async function start() {
         if(req.originalUrl.replace(/\?.*$/,"").endsWith('/')){
             filePath = path.join(filePath, "index.html") ;
         }
-        
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) { 
-                //error reading file, continue with standard
-                return next(); 
-            }
-            
-            // Modify HTML content here
+        try{
+            const data = await fs.promises.readFile(filePath, 'utf8') ;
             let modifiedHtml = data;
             // Example modification: Inject a script tag
             modifiedHtml = injectBamz(modifiedHtml, appName, isPlugin) ;
             
             res.setHeader('Content-Type', 'text/html');
             res.end(modifiedHtml);
-        });
+        // eslint-disable-next-line no-unused-vars
+        }catch(err){
+            //error reading file, continue with standard
+            return next(); 
+        }
     }) ;
 
     //Register after the middleware to modify HTML

@@ -79,6 +79,8 @@ prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
 | options | Database connection options (useful to get the database/application name in `options.database`) |
 | grantSchemaAccess | Helper function to grant default schema access to some role. Useful to grant access to a schema you create to handle your plugin data |
 | filesDirectory | Path to the directory that contains the files of the plugin |
+| `appFileSystems` | This is a helper class to write file to application directory |
+
 
 
 ##### Clean database
@@ -98,6 +100,8 @@ prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
 | Param | Description |
 |-------|-------------|
 | client | Database client. You can call [`client.query`](https://node-postgres.com/apis/client#clientquery) |
+| `appFileSystems` | This is a helper class to write file to application directory |
+
 
 ##### Init plugin
 
@@ -113,7 +117,9 @@ initPlugin({contextOfApp, loadPluginData, hasCurrentPlugin, injectBamz, app, log
 | Param | Description |
 |-------|-------------|
 | `contextOfApp(appName)` | This is a helper function to get the context of an application by its application name. It returns `{pluginsData: {...}}` where `pluginsData` contains the data of each plugin activated for this application. See more details below on how to communicate between plugins |
+| `appFileSystems` | This is a helper class to write file to application directory |
 | `loadPluginData(({pluginsData, appName})=>{})` | This helper function add a function that will be called to communicate data between plugins (see dedicated section below) |
+| `userLoggedAndHasPlugin(req, res)` | Reject a request if the user is not logged or the plugin is not activated for the current application |
 | `hasCurrentPlugin(appName)` | This is a helper function to check if this plugin is currently activated to an application. A common usage is to call it in the added router middlewares to check that the plugin is activated before perform its action |
 | `injectBamz(html, appName)` | This is a helper function that inject BamZ loading code into a HTML code. This is done automatically by BamZ file serving, but if your plugin override to do something like SSR, you may need to use it to inject BamZ loading code in your handler  |
 | `app` | The express app instance |
@@ -132,6 +138,46 @@ The `initPlugin` function plugin must return a plugin data structure with the fo
 | `menu` | Entries in the top menu that is automatically injected to the application |
 | `pluginSlots` | data slots in which other plugin can inject extension to this plugin |
 
+##### Manage application files (appFileSystems)
+
+To manage the application files, you should use the appFileSystems helper.
+
+To get the instance of appFileSystem of an application call : 
+```javascript
+const appFs = appFileSystems.getFileSystem(appName)
+```
+
+Then you can call the following functions : 
+```javascript
+//write binary
+appFs.writeFile("path/to/file.ext", fileBuffer) ;
+//write text
+appFs.writeFile("path/to/file.txt", textContent, { encoding: "utf8"}) ;
+
+//read binary
+const buffer = await appFs.readFile("path/to/file.ext") ;
+//read text
+const buffer = await appFs.readFile("path/to/file.text", { encoding: "utf8"}) ;
+
+//check if a file exists
+if(await appFs.readFpathExistsile("path/to/file.text")){
+    //...
+}
+
+//remove a file or a folder
+await appFs.remove("path/to/file/or/folder") ;
+```
+
+If your plugin need to do something when a file changed you can listen to file system events
+```javascript
+appFileSystems.addListener("fileWritten", async ({appName, filePath, relativePath, branch})=>{
+    console.log(`The file ${filePath} has been written !`) ;
+}) ;
+
+appFileSystems.addListener("fileDeleted", async ({appName, filePath, relativePath, branch})=>{
+    console.log(`The file ${filePath} has been deleted !`) ;
+}) ;
+```
 
 ##### Add server side API (express router)
 

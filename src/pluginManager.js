@@ -4,6 +4,7 @@ const logger = require("./logger");
 const { getDbClient, hasPlugin } = require("./database/dbAccess");
 const { access, constants } = require("fs/promises");
 const { injectBamz } = require("./utils") ;
+const { appFileSystems } = require("./appFileSystems");
 let pluginsData = {} ;
 
 const pluginDirectories = [process.env.PLUGINS_DIR] ;
@@ -164,7 +165,20 @@ async function initPlugins(params){
         const loadPluginData = async function (listener){
             addPluginLoadListener(pluginToLoad.id, listener) ;
         }
-        pluginsData[pluginToLoad.id] = await pluginToLoad.plugin.initPlugin({contextOfApp, loadPluginData, hasCurrentPlugin, injectBamz , ...params});
+        const userLoggedAndHasPlugin = async function(req, res){
+            if(await params.graphql.checkAppAccessMiddleware(req, res)){
+                //is logged
+                if(await hasCurrentPlugin(req.appName)){
+                    return true;
+                }else{
+                    res.status(403).json({error: "Forbidden"})
+                    return false;
+                }
+            }else{
+                return false;
+            }
+        }
+        pluginsData[pluginToLoad.id] = await pluginToLoad.plugin.initPlugin({contextOfApp, appFileSystems, loadPluginData, hasCurrentPlugin, userLoggedAndHasPlugin, injectBamz , ...params});
         if(pluginsData[pluginToLoad.id].frontEndPath){
             pluginsData[pluginToLoad.id].frontEndFullPath = path.join(pluginToLoad.path ,pluginsData[pluginToLoad.id].frontEndPath);
         }
