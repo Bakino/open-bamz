@@ -18,7 +18,7 @@ const cookieParser = require('cookie-parser');
 const {authRoutes, jwtMiddleware} = require('./auth');
 
 
-process.env.GRAPHILE_ENV = process.env.PROD_ENV 
+process.env.GRAPHILE_ENV = process.env.PROD_ENV  ;
 
 // Main DB connection information from env variables
 const mainDatabaseConnectionOptions = {

@@ -62,7 +62,7 @@ async function checkAppAccessMiddleware(req, res, appName) {
     }
     try{
         // Check user has proper authorization
-        await checkAppAccess(appName, req.user?.role);
+        await checkAppAccess(appName, req.jwt?.bamz?.role);
         return true;
     }catch(err){
         console.log("checkAppAccessMiddleware error", err) ;
@@ -116,8 +116,8 @@ async function getDbGraphql(appName) {
     try{
         let plugins = (await client.query("SELECT plugin_id FROM openbamz.plugins")).rows;
         let schemas = (await client.query("select schema_name from information_schema.schemata")).rows;
-        let publicSchemas = ["public", "openbamz"].concat(schemas.filter(s=>plugins.some(p=>p.plugin_id===s.schema_name)).map(s=>s.schema_name))
-        console.log("publicSchemas", publicSchemas);
+        let publicSchemas = ["public", "openbamz"].concat(schemas.filter(s=>plugins.some(p=>(p.plugin_id||"").replace("open-bamz-", "")===s.schema_name)).map(s=>s.schema_name))
+        console.log("publicSchemas of "+appName, publicSchemas);
         options.schemas = publicSchemas ;
         pglByDb[appName] = postgraphile(graphileConfig.createAppPreset(options));
         return pglByDb[appName];

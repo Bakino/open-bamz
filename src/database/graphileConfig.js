@@ -85,19 +85,27 @@ const mainDbPreset = {
     },
     grafast: {
         context(requestContext, args) {
-          let role = "anonymous";
-          const req = requestContext.expressv4?.req;
-          if(req && req.user && req.user.role){
-              role = req.user.role ;
-          }
-          return {
-            pgSettings: {
+            const pgSettings = {
               ...args.contextValue?.pgSettings,
-              role,
-              //server side call can override the role
-              ...args.contextValue?.forceRole,
-            },
-          };
+            }
+
+            pgSettings.role = "anonymous";
+            const req = requestContext.expressv4?.req;
+            if(req?.jwt?.bamz){
+                for (const [key, value] of Object.entries(req.jwt.bamz)) {
+                    if (typeof value === "undefined" || value === null) continue;
+                    if (!/^[a-z_][a-z0-9_]*$/i.test(key) || key.length > 52) continue;
+                    pgSettings[`jwt.bamz.${key}`] = String(value);
+                }
+                pgSettings.role = req.jwt.bamz.role;
+            }
+            return {
+              pgSettings: {
+                ...pgSettings,
+                //server side call can override the role
+                ...args.contextValue?.forceRole,
+              },
+            };
         },
     },
 };
@@ -139,20 +147,41 @@ function createAppPreset(options){
         },
         grafast: {
             context(requestContext, args) {
-              let role = "anonymous";
-              const req = requestContext.expressv4?.req;
-              if(req && req.user && req.user.role){
-                  role = req.user.role ;
-              }
-              return {
-                pgSettings: {
+                const pgSettings = {
                   ...args.contextValue?.pgSettings,
-                  role: role,
-                  //server side call can override the role
-                  ...args.contextValue?.forceRole,
-                },
-              };
-            },
+                }
+
+                pgSettings.role = "anonymous";
+                const req = requestContext.expressv4?.req;
+                if(req && req.jwt){
+                    let notBamzRole = null;
+                    for(const [tokenName, tokenValue] of Object.entries(req.jwt)) {
+                        for (const [key, value] of Object.entries(tokenValue)) {
+                            if (typeof value === "undefined" || value === null) continue;
+                            if (!/^[a-z_][a-z0-9_]*$/i.test(key) || key.length > 52) continue;
+                            pgSettings[`jwt.${tokenName}.${key}`] = String(value);
+                        }
+                        if(tokenName !== "bamz" && tokenValue.role && typeof tokenValue.role === "string"){
+                            notBamzRole = tokenValue.role;
+                        }
+                    }
+                    // by default take role from bamz token
+                    if (req.jwt.bamz?.role && typeof req.jwt.bamz.role === "string") {
+                        pgSettings.role = req.jwt.bamz.role;
+                    }
+                    if(notBamzRole){
+                        // override role if not bamz role is present
+                        pgSettings.role = notBamzRole;
+                    }
+                }
+                return {
+                  pgSettings: {
+                    ...pgSettings,
+                    //server side call can override the role
+                    ...args.contextValue?.forceRole,
+                  },
+                };
+            }
         },
     };
 }

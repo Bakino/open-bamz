@@ -9,6 +9,7 @@ async function isAdmin(){
             "Content-Type": "application/json",
             Accept: "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ query: `query getapp {
   app_by_code(code: "${window.BAMZ_APP}") {
     code

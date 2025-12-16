@@ -39,6 +39,47 @@ If you need to execute server side code, you can either :
 
 To access the database from the application, Open BamZ use PostGraphile to provide standard GraphQL server to the application
 
+### Schema structure and access right
+
+By default an application database has 2 schemas : 
+ - openbamz : metadata such as the list of installed plugin
+ - public : standard public schema that should contains application tables
+
+The plugins are supposed to create their own schema when they involve database storage for the plugin settings or data
+
+By default graphql will give access to the following schema : 
+ - openbamz
+ - public
+ - each other schema which name is equals to the plugin name (for exemple schema `myplugin` of plugin named `myplugin`). 
+
+If is totally possible to create other schema name but they won't be served through graphql (ex: you can create a `myplugin_private` schema that won't be accessible through graphql)
+
+For each application database, the following roles are created : 
+ - `dbname`_admin
+ - `dbname`_user
+ - `dbname`_readonly
+
+Each user came with his own role base on its user account uuid. When the database is created the user role is granted with `dbname`_admin role.
+
+All privileges are granted on public and openbamz schema to the `dbname`_admin role
+
+The roles `dbname`_user and `dbname`_readonly cam with the right to execute functions on public and openbamz
+
+The role `dbname`_user can read an write tables in public schema
+
+The role `dbname`_readonly can read in public schema
+
+Here is a summary : 
+| **Schema**      | **Role**               | **SELECT** | **INSERT** | **UPDATE** | **DELETE** | **EXECUTE Functions** | **Notes**                          |
+|-----------------|------------------------|------------|------------|------------|------------|-----------------------|------------------------------------|
+| **openbamz**    | `dbname_admin`         | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes                 | Full control over metadata.        |
+|                 | `dbname_user`          | ❌ No       | ❌ No       | ❌ No       | ❌ No       | ✅ Yes                 | No direct table access.            |
+|                 | `dbname_readonly`     | ❌ No       | ❌ No       | ❌ No       | ❌ No       | ✅ Yes                 | No direct table access.            |
+| **public**      | `dbname_admin`         | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes                 | Full control over application tables. |
+|                 | `dbname_user`          | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes      | ✅ Yes                 | Can read/write tables.              |
+|                 | `dbname_readonly`     | ✅ Yes      | ❌ No       | ❌ No       | ❌ No       | ✅ Yes                 | Read-only access to tables.         |
+| **Plugin Schemas** | Any Role          | Depends on plugin definition | Depends on plugin definition | Depends on plugin definition | Depends on plugin definition | Depends on plugin definition | Plugins define their own access rules. | 
+
 ### Plugins
 
 The Open BamZ core does not do anything more that what is described above : 
