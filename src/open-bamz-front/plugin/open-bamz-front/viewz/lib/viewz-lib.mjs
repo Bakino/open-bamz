@@ -4,7 +4,7 @@ window.VIEWZ_HTML_PROCESSORS = [];
 
 export let viewzLib = lib;
 
-import {startViewZ} from "https://cdn.jsdelivr.net/gh/Bakino/viewz@latest/lib/frameworkz.mjs" ;
+import {startViewZ} from "https://cdn.jsdelivr.net/gh/Bakino/viewz@6be290efc7ca4e5a2eb6c8f85f7a966bb3d72b5b/lib/frameworkz.mjs" ;
 
 
 window.bamzWaitLoaded().then(async ()=>{

@@ -2,11 +2,15 @@
     "routing": "HASH",
     "viewsPath": "views",
     "routes": [
-        { "url": "/create_app", "path": "create_app" },
+        { "url": "/", "path": "root", 
+            "subRoutes": [
+                { "url": "/welcome", "path": "welcome", "defaultChild": true },
+                { "url": "/create_app", "path": "create_app" },
+                { "url": "/settings/:app", "path": "settings" }
+            ]  
+        },
         { "url": "/login{/:url}", "path": "login" },
-        { "url": "/create_account", "path": "create_account" },
-        { "url": "/", "path": "root" },
-        { "url": "/settings/:app", "path": "settings" }
+        { "url": "/create_account", "path": "create_account" }
     ],
     "extensions": [
         { "url" : "extensions/open-bamz.mjs"}

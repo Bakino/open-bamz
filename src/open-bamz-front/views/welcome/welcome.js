@@ -2,9 +2,6 @@
 //Script goes here
 
 view.loader = async ()=>{
-    if(!(await view.checkLogged())){
-        return {} ;
-    }
     let listapps;
     let user;
     try{
@@ -47,8 +44,3 @@ view.loader = async ()=>{
         user: user
     }
 };
-
-view.logout = async()=>{
-    window.openbamz.logout() ;
-    view.router.navigateTo("/login")
-}
