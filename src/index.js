@@ -4,6 +4,7 @@ const mime = require('mime-types')
 const bodyParser = require('body-parser')
 const path = require("path");
 const fs = require("fs");
+const fsp = fs.promises ;
 const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS } = require("./pluginManager");
@@ -68,11 +69,8 @@ async function start() {
     app.use(bodyParser.urlencoded({ limit:'50mb', extended: false }))
 
     app.use('/auth', authRoutes);
-    
-    // Initialize plugins
-    const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, io}) ;
 
-    // middleware to determine the application name from hostname or headers
+        // middleware to determine the application name from hostname or headers
     app.use(async (req, res, next) => {
         let appName = null ;
 
@@ -136,6 +134,11 @@ async function start() {
         }
         return path.join(process.env.DATA_DIR, "apps" ,appName, "public");
     }
+    
+    // Initialize plugins
+    const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, io}) ;
+
+
 
     // Middleware to search all HTML files or / requests and inject bamz-lib
     app.get(/.*\.html$|\/$/, async (req, res, next) => {
@@ -151,9 +154,39 @@ async function start() {
             if(slashIndex !== -1){
                 pluginName = pluginName.substring(0, slashIndex) ;
             }
+
+            if(!pluginsData[pluginName]){
+                //plugin not found
+                return res.status(404).send("Plugin not found");
+            }
+
+            let allowedToServe = true ;
+
+            relativePath = req.originalUrl.replace(`/plugin/${pluginName}`, '').replace(/\?.*$/,"");
+
+            if(!req.jwt?.bamz){
+                // not connected
+                allowedToServe = false ;
+                if(pluginsData[pluginName].frontEndPublic){
+                    // serve public files
+                    let publicFiles = pluginsData[pluginName].frontEndPublic ;
+                    if(!Array.isArray(publicFiles)){
+                        publicFiles = [publicFiles] ;
+                    }
+                    for(let pf of publicFiles){
+                        if(relativePath === pf || relativePath.startsWith(pf+"/")){
+                            allowedToServe = true ;
+                            break;
+                        }
+                    }
+                }
+            }
+            if(!allowedToServe){
+                return res.status(403).send("Forbidden");
+            }
+
             //get base path from plugins data
             basePath = pluginsData[pluginName]?.frontEndFullPath
-            relativePath = req.originalUrl.replace(`/plugin/${pluginName}`, '').replace(/\?.*$/,"");
         } else {
             //file in app sources
             relativePath = req.originalUrl.replace(`/app/${appName}`, '').replace(/^\//, "");;
@@ -290,7 +323,7 @@ async function start() {
         }
     }) ;
 
-    app.use((req, res, next)=>{
+    app.use(async (req, res, next)=>{
         const appName = req.appName ;
         if(!appName){ 
             return next() ;
@@ -306,8 +339,9 @@ async function start() {
         if(!filePath.startsWith(appFilePath)){
             return next() ;
         }
-        fs.stat(filePath, (err, stats) => {
-            if (err || !stats.isFile()) {
+        try {
+            let stats = await fsp.stat(filePath);
+            if (!stats.isFile()) {
                 // File does not exist or is not a file
                 return next(); 
             }
@@ -318,7 +352,9 @@ async function start() {
 
             // Serve the file
             createReadStream(filePath).pipe(res);
-        });
+        }catch(err){
+            return next() ;
+        }
     }); 
 
     // Create a Node HTTP server, mounting Express into it

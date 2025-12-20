@@ -68,6 +68,8 @@ async function createRolesIfNeeded(options){
                 logger.info(`create ROLE ${role}`);
                 await client.query(`CREATE ROLE ${role}
                     NOSUPERUSER
+                    NOLOGIN
+                    NOINHERIT
                     NOCREATEDB
                     NOCREATEROLE
                     NOREPLICATION`)
@@ -80,6 +82,8 @@ async function createRolesIfNeeded(options){
             logger.info(`create ROLE ${roleAdmin}`);
             await client.query(`CREATE ROLE ${roleAdmin}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 CREATEDB
                 CREATEROLE
                 REPLICATION`)
@@ -102,6 +106,8 @@ async function prepareMainRoles(options){
             logger.info(`create ROLE ${role}`);
             await client.query(`CREATE ROLE ${role}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION`)
@@ -128,6 +134,8 @@ async function prepareMainRoles(options){
             logger.info(`create ROLE ${roleAnonymous}`);
             await client.query(`CREATE ROLE ${roleAnonymous}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION`)
@@ -140,6 +148,8 @@ async function prepareMainRoles(options){
             logger.info(`create ROLE ${roleAdmin}`);
             await client.query(`CREATE ROLE ${roleAdmin}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 CREATEDB
                 CREATEROLE
                 REPLICATION`)
@@ -182,8 +192,12 @@ async function preparePlugins(options){
         let result = await client.query(`SELECT * FROM openbamz.plugins`);
         let plugins = result.rows ;
 
-        const grantSchemaAccess = (schema) =>{
-            grantDefaultAccess(client, schema, options.database) ;
+        const grantSchemaAccess = (schema, roleLevels = [
+            { role: "admin", level: "admin"},
+            { role: "user", level: "user"},
+            { role: "readonly", level: "readonly"}
+        ]) =>{
+            grantDefaultAccess(client, schema, options.database, roleLevels) ;
         }
 
         await clearCache(options.database);
@@ -289,21 +303,17 @@ async function grantAdminAccess(client, schemaName, databaseName){
  * @param {*} schemaName 
  * @param {*} databaseName 
  */
-async function grantBaseAccess(client, schemaName, databaseName){
-    let roleUser = databaseName+"_user";
-    let roleReadonly = databaseName+"_readonly";
+async function grantBaseAccess(client, schemaName, databaseName, roleBase){
+    let role = databaseName+"_"+roleBase;
 
-    for(let role of [roleUser, roleReadonly]){
-        //give access to schema
-        await client.query(`GRANT USAGE ON SCHEMA ${schemaName} TO ${role}`)
+    //give access to schema
+    await client.query(`GRANT USAGE ON SCHEMA ${schemaName} TO ${role}`)
 
-        //allow run functions
-        await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schemaName} TO ${role}`)
+    //allow run functions
+    await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schemaName} TO ${role}`)
 
-        //set default for future functions
-        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT EXECUTE ON FUNCTIONS TO ${role}`)
-    }
-
+    //set default for future functions
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT EXECUTE ON FUNCTIONS TO ${role}`)
 }
 
 
@@ -314,9 +324,9 @@ async function grantBaseAccess(client, schemaName, databaseName){
  * @param {*} schemaName 
  * @param {*} databaseName 
  */
-async function grantUserAccess(client, schemaName, databaseName){
+async function grantUserAccess(client, schemaName, databaseName, roleUserName="readonly"){
     let role = databaseName+"_admin";
-    let roleUser = databaseName+"_user";
+    let roleUser = databaseName+"_"+roleUserName;
 
    
     await client.query(`GRANT SELECT, UPDATE, INSERT, DELETE ON ALL TABLES IN SCHEMA ${schemaName} TO ${roleUser}`)
@@ -339,9 +349,9 @@ async function grantUserAccess(client, schemaName, databaseName){
  * @param {*} schemaName 
  * @param {*} databaseName 
  */
-async function grantReadOnlyAccess(client, schemaName, databaseName){
+async function grantReadOnlyAccess(client, schemaName, databaseName, roleReadonlyName="readonly"){
     let role = databaseName+"_admin";
-    let roleReadonly = databaseName+"_readonly";
+    let roleReadonly = databaseName+"_"+roleReadonlyName;
 
     await client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA ${schemaName} TO ${roleReadonly}`)
 
@@ -356,11 +366,39 @@ async function grantReadOnlyAccess(client, schemaName, databaseName){
  * @param {*} schemaName 
  * @param {*} databaseName 
  */
-async function grantDefaultAccess(client, schemaName, databaseName){
-    await grantAdminAccess(client, schemaName, databaseName);
-    await grantBaseAccess(client, schemaName, databaseName);
-    await grantUserAccess(client, schemaName, databaseName);
-    await grantReadOnlyAccess(client, schemaName, databaseName);
+async function grantDefaultAccess(client, schemaName, databaseName, roleLevels = [
+    { role: "admin", level: "admin"},
+    { role: "user", level: "user"},
+    { role: "readonly", level: "readonly"}
+]){
+    console.log("grant default access on ", schemaName, databaseName, roleLevels) ;
+    // remove all public access
+    await client.query(`REVOKE ALL ON SCHEMA ${schemaName} FROM PUBLIC`) ;
+    await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${schemaName} FROM PUBLIC`) ;
+    await client.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${schemaName} FROM PUBLIC`) ;
+    await client.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ${schemaName} FROM PUBLIC`) ;
+
+    for(let level of roleLevels){
+        // revoke previous access
+        await client.query(`REVOKE ALL ON SCHEMA ${schemaName} FROM ${databaseName+"_"+level.role}`) ;
+        await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${schemaName} FROM ${databaseName+"_"+level.role}`) ;
+        await client.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${schemaName} FROM ${databaseName+"_"+level.role}`) ;
+        await client.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ${schemaName} FROM ${databaseName+"_"+level.role}`) ;
+        if(level.level === "admin"){
+            await grantAdminAccess(client, schemaName, databaseName, level.role);
+        }
+        if(level.level === "user"){
+            await grantBaseAccess(client, schemaName, databaseName, level.role);
+            await grantUserAccess(client, schemaName, databaseName, level.role);
+        }
+        if(level.level === "readonly"){
+            await grantBaseAccess(client, schemaName, databaseName, level.role);
+            await grantReadOnlyAccess(client, schemaName, databaseName, level.role);
+        }
+        if(level.level === "exec"){
+            await grantBaseAccess(client, schemaName, databaseName, level.role);
+        }
+    }
 }
 
 
@@ -379,6 +417,8 @@ async function prepareRole(options, account){
             logger.info(`create ROLE ${role}`);
             await client.query(`CREATE ROLE ${role}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION;`)
@@ -406,6 +446,8 @@ async function preparePrivileges(options){
             logger.info(`create ROLE ${role}`);
             await client.query(`CREATE ROLE ${role}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION;`)
@@ -419,6 +461,8 @@ async function preparePrivileges(options){
             logger.info(`create ROLE ${roleUser}`);
             await client.query(`CREATE ROLE ${roleUser}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION;`)
@@ -430,6 +474,8 @@ async function preparePrivileges(options){
             logger.info(`create ROLE ${roleReadonly}`);
             await client.query(`CREATE ROLE ${roleReadonly}
                 NOSUPERUSER
+                NOLOGIN
+                NOINHERIT
                 NOCREATEDB
                 NOCREATEROLE
                 NOREPLICATION;`)
@@ -437,7 +483,8 @@ async function preparePrivileges(options){
 
         for(let schemaName of [ "public", "openbamz"]){
             await grantAdminAccess(client, schemaName, options.database);
-            await grantBaseAccess(client, schemaName, options.database);
+            await grantBaseAccess(client, schemaName, options.database, "user");
+            await grantBaseAccess(client, schemaName, options.database, "readonly");
         }
 
         await grantUserAccess(client, "public", options.database) ;

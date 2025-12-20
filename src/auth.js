@@ -130,31 +130,25 @@ router.post('/logout', async (req, res) => {
  * 3. Inject Authorization header for PostGraphile v5
  */
 const jwtMiddleware = async (req, res, next) => {
+    const jwtName = "bamz"
+    const cookiePrefix = `jwt-${jwtName}-`
     if(req.cookies){
-        for(const [name, value] of Object.entries(req.cookies)){
-            // Look for cookies named like "jwt-<claim>-access"
-            if(name.startsWith("jwt-") && name.endsWith("-access")){
-                const token = value;
-                if (!token) continue;
-                try {
-                    const decoded = verifyAccessToken(token);
+        const cookieAccess = req.cookies[`${cookiePrefix}access`];
+        const cookieRefresh = req.cookies[`${cookiePrefix}refresh`];
+        if(cookieAccess && cookieRefresh){
+            try {
+                const decoded = verifyAccessToken(cookieAccess);
 
-                    //check session has been deleted on server side
-                    const sessionToken = req.cookies?.[name.replace("-access", "-refresh")];
-                    if (!sessionToken) continue;
-
-                    const entry = await findSession(sessionToken);
-                    if (!entry || entry.revoked || entry.expire_time < new Date()) {
-                        continue;
-                    }
-
-                    // Attach user data for your own routes
-                    if(!req.jwt) req.jwt = {};
-                    req.jwt[name.replace("jwt-", "").replace("-access", "")] = decoded;
-                // eslint-disable-next-line no-unused-vars
-                } catch (err) {
-                    // invalid or expired — ignore and continue
+                const entry = await findSession(cookieRefresh);
+                if (!entry || entry.revoked || entry.expire_time < new Date()) {
+                    return next() ;
                 }
+
+                if(!req.jwt) req.jwt = {};
+                req.jwt[jwtName] = decoded;
+            // eslint-disable-next-line no-unused-vars
+            } catch (err) {
+                // invalid or expired — ignore and continue
             }
         }
     }

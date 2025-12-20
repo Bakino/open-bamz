@@ -106,9 +106,11 @@ async function getConnectionInfo(options, database){
  */
 async function hasPlugin(appName, plugin){
     try{
+        if(!appName || !plugin) return false ;
+        if(appName === process.env.DB_NAME) return false ; 
         return (await runQuery({database: appName}, "SELECT plugin_id FROM openbamz.plugins WHERE plugin_id=$1", [plugin])).rows.length>0;
     }catch(err){
-        logger.info("Error while check if has plugin %o", err) ;
+        logger.info("Error while check if has plugin %o in app %o", err, appName) ;
         return false;
     }
 }
