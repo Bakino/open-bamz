@@ -1,4 +1,4 @@
-const { writeFile, readFile } = require("fs/promises");
+const { writeFile, readFile, readdir } = require("fs/promises");
 const { ensureDir, remove, pathExists } = require("fs-extra");
 const path = require("path") ;
 const logger = require("./logger");
@@ -53,6 +53,27 @@ class AppFileSystem {
         const fullPath = path.join(this.getAppPath(options.branch??"public"), filePath) ;
         await remove(fullPath) ;
         await this.emit("fileDeleted", {filePath: fullPath, options}) ;
+    }
+
+    async listAllFiles(branch = "public"){
+        const basePath = this.getAppPath(branch);
+
+        const results = [];
+
+        async function recurse(current) {
+            const entries = await readdir(current, { withFileTypes: true });
+            for (const entry of entries) {
+                const full = path.join(current, entry.name);
+                if (entry.isDirectory()) {
+                    await recurse(full);
+                } else if (entry.isFile()) {
+                    results.push(path.relative(basePath, full));
+                }
+            }
+        }
+
+        await recurse(basePath);
+        return results;
     }
 }
 
