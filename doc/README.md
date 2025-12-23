@@ -175,6 +175,8 @@ The `initPlugin` function plugin must return a plugin data structure with the fo
 |-------|-------------|
 | `frontEndPath` | The path to the front-end path to serve. The front-end path will be serve as `/plugin/:appName/${pluginName}/` |
 | `frontEndLib` | Can be path to one javascript lib file or an array of javascript lib files. These files will be automatically loaded on application start. This path must be relative to `frontEndPath` |
+| `frontEndPublic` | Path of the front end that is accessible without being admin of the application (can take a single string or an array of strings). |
+| `graphqlSchemas` | By default if the plugin create a schema that has the same name as the plugin, this schema is accessible through graphql. If you need another schema to be available through graphql, give the schemas names in this property (can take a single string or an array of strings) |
 | `router` | express router that contains server middlewares needed for this plugin. see [Add server side API (express router)](#add-server-side-api-express-router) |
 | `menu` | Entries in the top menu that is automatically injected to the application |
 | `pluginSlots` | data slots in which other plugin can inject extension to this plugin |

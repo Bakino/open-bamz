@@ -6,6 +6,7 @@ const { prepareSchema, preparePlugins, preparePrivileges } = require("./init");
 const { grafserv } = require("postgraphile/grafserv/express/v4");
 
 const logger = require("../logger");
+const { contextOfApp } = require("../pluginManager");
 
 let pglMain;
 /**
@@ -114,9 +115,26 @@ async function getDbGraphql(appName) {
 
     let client = await getDbClient(options) ;
     try{
-        let plugins = (await client.query("SELECT plugin_id FROM openbamz.plugins")).rows;
+        const context = await contextOfApp(appName) ;
+        //let plugins = (await client.query("SELECT plugin_id FROM openbamz.plugins")).rows;
         let schemas = (await client.query("select schema_name from information_schema.schemata")).rows;
-        let publicSchemas = ["public", "openbamz"].concat(schemas.filter(s=>plugins.some(p=>(p.plugin_id||"").replace("open-bamz-", "")===s.schema_name)).map(s=>s.schema_name))
+        let publicSchemas = ["public", "openbamz"]
+        for(let [pluginId, pluginData] of Object.entries(context.pluginsData)){
+            if(schemas.some(s=>s.schema_name===pluginId.replace("open-bamz-", ""))){
+                publicSchemas.push(pluginId.replace("open-bamz-", "")) ;
+            }
+            let pluginGraphqlSchemas = pluginData.graphqlSchemas ;
+            if(pluginGraphqlSchemas){
+                if(!Array.isArray(pluginGraphqlSchemas)){
+                    pluginGraphqlSchemas = [pluginGraphqlSchemas] ;
+                }
+                for(let ps of pluginGraphqlSchemas){
+                    if(schemas.some(s=>s.schema_name===ps) && !publicSchemas.includes(ps)){
+                        publicSchemas.push(ps) ;
+                    }
+                }
+            }
+        }
         console.log("publicSchemas of "+appName, publicSchemas);
         options.schemas = publicSchemas ;
         pglByDb[appName] = postgraphile(graphileConfig.createAppPreset(options));

@@ -478,3 +478,4 @@ module.exports.middlewareMenuJS = middlewareMenuJS;
 module.exports.dynamicImport = dynamicImport;
 module.exports.getPluginTaskRunner = getPluginTaskRunner;
 module.exports.clearCache = clearCache;
+module.exports.contextOfApp = contextOfApp;
