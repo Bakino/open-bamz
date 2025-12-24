@@ -7,7 +7,7 @@ const fs = require("fs");
 const fsp = fs.promises ;
 const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded } = require("./database/init");
 const { createServer } = require("node:http");
-const { initPlugins, middlewareMenuJS } = require("./pluginManager");
+const { initPlugins, middlewareMenuJS, contextOfApp } = require("./pluginManager");
 const graphql = require("./database/graphql");
 const { runQuery, runQueryMain, getDbClient } = require("./database/dbAccess");
 const { injectBamz } = require("./utils");
@@ -16,6 +16,7 @@ const {hostnameCache, appCache} = require("./appCache");
 const { extname } = require("node:path");
 const { createReadStream } = require("node:fs");
 const cookieParser = require('cookie-parser');
+const cors = require('cors');
 const {authRoutes, jwtMiddleware} = require('./auth');
 
 
@@ -60,6 +61,15 @@ async function start() {
     const port = 3000
 
     app.use(cookieParser());
+    // app.use(cors({
+    //     origin: /.*/,
+    //     credentials: true,
+    //     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    //     allowedHeaders: ["Content-Type", "Accept", "Range", "x-lang","x-timezone", "x-binding-refresh-id", "Authorization", "x-cors-auth"],
+    //     exposedHeaders: ["Accept-Ranges", "Content-Encoding", "Content-Length", "Content-Range", "Content-Disposition", "Content-Type"]
+    // }));
+
+    
 
     app.use(jwtMiddleware) ;
 
@@ -70,7 +80,7 @@ async function start() {
 
     app.use('/auth', authRoutes);
 
-        // middleware to determine the application name from hostname or headers
+    // middleware to determine the application name from hostname or headers
     app.use(async (req, res, next) => {
         let appName = null ;
 
@@ -127,6 +137,49 @@ async function start() {
         res.setHeader('app-name', appName) ;
         next() ;
     });
+
+    app.use(cors(async (req, callback) =>{
+
+        const defaultAllowed = ["Content-Type", "Accept", "Range", "x-lang","x-timezone", "x-binding-refresh-id", "Authorization", "x-cors-auth"] ;
+        const defaultExposed = ["Accept-Ranges", "Content-Encoding", "Content-Length", "Content-Range", "Content-Disposition", "Content-Type"] ;
+        if(req.headers["access-control-request-headers"]){
+            const requestedHeaders = req.headers["access-control-request-headers"].split(",") ;
+            for(let rh of requestedHeaders){
+                if(!defaultAllowed.includes(rh)){
+                    defaultAllowed.push(rh) ;
+                }
+                if(!defaultExposed.includes(rh)){
+                    defaultExposed.push(rh) ;
+                }
+            }
+        }
+        if(req.appName){
+            let pluginData = await contextOfApp(req.appName) ;
+            if(pluginData){
+                for(let config of Object.values(pluginData.pluginsData)){
+                    if(config.cors){
+                        for(let cor of config.cors){
+                            cor = cor.replace(":appName", req.appName) ;
+                            if(!defaultAllowed.includes(cor)){
+                                defaultAllowed.push(cor) ;
+                            }
+                            if(!defaultExposed.includes(cor)){
+                                defaultExposed.push(cor) ;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        const  corsOptions = {
+            origin: /.*/,
+            credentials: true,
+            methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            allowedHeaders: defaultAllowed,
+            exposedHeaders: defaultExposed
+        } ;
+        callback(null, corsOptions);
+    }));
 
     function getAppPath(appName){
         if(appName===process.env.DB_NAME){

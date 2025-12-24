@@ -170,8 +170,12 @@ function createAppPreset(options){
                         pgSettings.role = req.jwt.bamz.role;
                     }
                     if(notBamzRole){
-                        // override role if not bamz role is present
-                        pgSettings.role = notBamzRole;
+                        if(req.headers.referer && req.headers.referer.replace(req.headers.origin, "").startsWith("/plugin/")){
+                            // come from a plugin, keep the bamz role because we need the admin right there
+                        }else{
+                            // not in a plugin, prefer the application role
+                            pgSettings.role = notBamzRole;
+                        }
                     }
                 }
                 return {

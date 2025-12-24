@@ -116,7 +116,7 @@ const contextOfApp = async (appName)=>{
             client.release() ;
         }
     }catch(err){
-        logger.info("No context for app %o", err) ;
+        logger.info("No context for app %o : %o", appName, err) ;
         let contextApp = {
             pluginsData: {}
         }
