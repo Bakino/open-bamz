@@ -88,6 +88,11 @@ async function getPluginTaskRunner({plugin, runnerPath}){
  */
 const contextOfApp = async (appName)=>{
     if(!appName){ throw "Missing appName when try to get context" ; }
+    if(appName === process.env.DB_NAME){
+        return {
+            pluginsData: {}
+        }
+    }
     try{
         const client = await getDbClient({database: appName});
         try{
