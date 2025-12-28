@@ -50,12 +50,14 @@ services:
       - "SSH_CONTAINER_HOST=bamz-ssh" # SSH options for code editor plugin
       - "SSH_ADMIN_USER=root" # SSH options for code editor plugin
       - "SSH_ADMIN_PRIVATE_KEY_FILE=/home/node/.ssh-bamz_id_rsa" # SSH options for code editor plugin
+      - "BINARY_STORAGE_PATH=/home/node/binary" # options for binary storage plugin (if you want storage on disk)
     volumes:
       - dev-open-bamz-data:/home/node/data
       - ~/open-bamz-plugins:/home/node/plugins
       - ./jwt_keys/jwtRS256.key:/home/node/jwtRS256.key:ro 
       - ./jwt_keys/jwtRS256.key.pub:/home/node/jwtRS256.key.pub:ro 
       - ./ssh_keys/id_rsa:/home/node/.ssh-bamz_id_rsa:ro # SSH private key for code editor plugin, create your own !
+      - dev-open-bamz-binary:/home/node/binary # volume for binary storage plugin (if you want storage on disk)
     depends_on:
       - db
     labels:
@@ -76,6 +78,8 @@ volumes:
   dev-open-bamz-pg:
     external: true
   dev-open-bamz-data:
+    external: true
+  dev-open-bamz-binary:
     external: true
 
 networks:
