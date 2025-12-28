@@ -31,6 +31,6 @@ module.exports = async (payload, {logger, query}) => {
         let appName = result.rows[0].dbname ;
         await runner(payload.params, {logger, query, appName, io}) ;
     }catch(err){
-        return logger.error("Error while running plugin task %o : %o", payload, err);
+        return logger.error("Error while running plugin task %o ", {payload, err});
     }
 };
