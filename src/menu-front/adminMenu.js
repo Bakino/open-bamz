@@ -20,11 +20,25 @@ async function isAdmin(){
     return response?.data?.app_by_code?.code === window.BAMZ_APP ;
 }
 
+async function refreshAuth(){
+    let response = await fetch("/auth/refresh", {
+        method: "POST",
+        credentials: "include"
+    });
+    const refreshed = response.ok ;
+    if(!refreshed){
+        window.location.hash = "#/login/"+encodeURIComponent(window.location.href) ;
+        return false;
+    }
+    return true;
+}
+
 async function loadMenu(){
     if(await  isAdmin()){
         // Inject CSS styles and create the banner
         injectStyles();
         createBanner(adminMenu);
+        refreshAuth() ;
     }
 }
 
