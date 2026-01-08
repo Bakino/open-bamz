@@ -202,10 +202,12 @@ async function preparePlugins(options){
 
         await clearCache(options.database);
         for(let pluginRecord of plugins){
+            logger.info(`[${options.database}] Start import plugin ${pluginRecord.plugin_id}`)
             let plugin = await dynamicImport(pluginRecord.plugin_id);
             if(!plugin){ continue ; }
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
-            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems});
+            logger.info(`[${options.database}] Start prepare plugin ${pluginRecord.plugin_id}`)
+            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems, logger});
         }
     }finally{
         client.release() ;

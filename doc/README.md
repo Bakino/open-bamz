@@ -111,7 +111,7 @@ As it is run at each startup, you should use pattern "create if not exists".
 
 This function receive a param like this : 
 ```javascript
-prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
+prepareDatabase({client, options, grantSchemaAccess, filesDirectory, logger});
 ```
 
 | Param | Description |
@@ -120,6 +120,7 @@ prepareDatabase({client, options, grantSchemaAccess, filesDirectory});
 | options | Database connection options (useful to get the database/application name in `options.database`) |
 | grantSchemaAccess | Helper function to grant default schema access to some role. Useful to grant access to a schema you create to handle your plugin data |
 | filesDirectory | Path to the directory that contains the files of the plugin |
+| logger | a logger instance |
 | `appFileSystems` | This is a helper class to write file to application directory |
 
 
