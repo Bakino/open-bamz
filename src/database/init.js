@@ -192,12 +192,12 @@ async function preparePlugins(options){
         let result = await client.query(`SELECT * FROM openbamz.plugins`);
         let plugins = result.rows ;
 
-        const grantSchemaAccess = (schema, roleLevels = [
+        const grantSchemaAccess = async (schema, roleLevels = [
             { role: "admin", level: "admin"},
             { role: "user", level: "user"},
             { role: "readonly", level: "readonly"}
         ]) =>{
-            grantDefaultAccess(client, schema, options.database, roleLevels) ;
+            await grantDefaultAccess(client, schema, options.database, roleLevels) ;
         }
 
         await clearCache(options.database);
@@ -233,16 +233,12 @@ async function addPlugin(options, pluginName){
             }
 
 
-            const grantSchemaAccess = (schema, level="default") =>{
-                if(level === "default"){
-                    grantDefaultAccess(client, schema, options.database) ;
-                }
-                if(level === "admin"){
-                    grantAdminAccess(client, schema, options.database) ;
-                }
-                if(level === "user"){
-                    grantUserAccess(client, schema, options.database) ;
-                }
+            const grantSchemaAccess = async (schema, roleLevels = [
+                { role: "admin", level: "admin"},
+                { role: "user", level: "user"},
+                { role: "readonly", level: "readonly"}
+            ]) =>{
+                await grantDefaultAccess(client, schema, options.database, roleLevels) ;
             }
             
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
@@ -483,16 +479,18 @@ async function preparePrivileges(options){
                 NOREPLICATION;`)
         } 
 
-        for(let schemaName of [ "public", "openbamz"]){
-            await grantAdminAccess(client, schemaName, options.database);
-            await grantBaseAccess(client, schemaName, options.database, "user");
-            await grantBaseAccess(client, schemaName, options.database, "readonly");
-        }
+        await grantDefaultAccess(client, "public", options.database, [
+            { role: "admin", level: "admin"}, // admin has full rights
+            { role: "user", level: "user"},   // user can read/write/exec
+            { role: "readonly", level: "readonly"} // readonly can read
+        ]) ;
 
-        await grantUserAccess(client, "public", options.database) ;
+        await grantDefaultAccess(client, "openbamz", options.database, [
+            { role: "admin", level: "admin"}, // admin has full rights
+            { role: "user", level: "exec"},   // user can exec
+            { role: "readonly", level: "exec"} // readonly can exec
+        ]) ;
 
-        await grantReadOnlyAccess(client, "public", options.database) ;
-       
         logger.info("Finish GRANT PRIVILEGES");
     }finally{
         client.release() ;
