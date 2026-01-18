@@ -44,11 +44,13 @@ async function dynamicImport(pluginName, pluginDir) {
     }
     let modulePath = path.join(pluginDir, pluginName) ;
     let pkg = require(path.join(modulePath, "package.json"));
+    let pluginInstance = null;
     if(pkg.type === "module"){
-        return import(path.join(modulePath, pkg.main))
+        pluginInstance = await import(path.join(modulePath, pkg.main))
     }else{
-        return require(path.join(modulePath, pkg.main))
+        pluginInstance = require(path.join(modulePath, pkg.main))
     }
+    return { plugin: pluginInstance, package: pkg } ;
 }
 
 /**
@@ -145,7 +147,7 @@ async function initPlugins(params){
                 .map(dirent => dirent.name);
         for(let pluginDir of subdirs){
             let pkg = require(path.join(dir, pluginDir , "package.json"));
-            let plugin = await dynamicImport(pluginDir, dir) ;
+            let { plugin } = await dynamicImport(pluginDir, dir) ;
             pluginsToLoad.push({pkg, depends: pkg?.openbamz?.depends??[] , plugin, id: pluginDir, path: path.join(dir, pluginDir) });
         }
     }
@@ -389,6 +391,8 @@ function middlewareMenuJS(req, res){
             res.setHeader("Content-Type", "application/javascript") ;
             res.end(`
 //script for ${req.appName}
+
+window.LOGGED_BAMZ_USER = ${req.jwt?.bamz?"true":"false"} ;
 
 window.document.body.style.transition = "opacity 1s";  
 

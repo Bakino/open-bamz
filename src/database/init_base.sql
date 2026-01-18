@@ -61,8 +61,11 @@ CREATE SCHEMA IF NOT EXISTS openbamz;
 -- Create plugins table
 CREATE TABLE IF NOT EXISTS openbamz.plugins (
     plugin_id varchar(128) primary key,
-    create_time timestamp without time zone DEFAULT now()
+    create_time timestamp without time zone DEFAULT now(),
+    "version" VARCHAR(128)
 ) ;
+
+ALTER TABLE openbamz.plugins ADD COLUMN IF NOT EXISTS "version" VARCHAR(128) ;
 
 -- trigger, on insert plugin, prepare the plugin
 CREATE OR REPLACE FUNCTION openbamz.openbamz_plugin_insert() RETURNS TRIGGER AS

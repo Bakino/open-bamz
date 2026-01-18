@@ -203,11 +203,14 @@ async function preparePlugins(options){
         await clearCache(options.database);
         for(let pluginRecord of plugins){
             logger.info(`[${options.database}] Start import plugin ${pluginRecord.plugin_id}`)
-            let plugin = await dynamicImport(pluginRecord.plugin_id);
+            let {plugin, package} = await dynamicImport(pluginRecord.plugin_id);
             if(!plugin){ continue ; }
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
-            logger.info(`[${options.database}] Start prepare plugin ${pluginRecord.plugin_id}`)
-            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems, logger});
+            logger.info(`[${options.database}] Start prepare plugin ${pluginRecord.plugin_id}`) ;
+            if(pluginRecord.version !== package.version){
+                await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems, logger});
+                await client.query(`UPDATE openbamz.plugins SET version = $1 WHERE plugin_id = $2`, [package.version, pluginRecord.plugin_id]);
+            }
         }
     }finally{
         client.release() ;
@@ -223,7 +226,7 @@ async function addPlugin(options, pluginName){
     const client = await getDbClient(options) ;
     try{
         await clearCache(options.database);
-        let plugin = await dynamicImport(pluginName);
+        let {plugin, package} = await dynamicImport(pluginName);
         if(plugin){
 
             if(plugin.dependencies){
@@ -242,7 +245,8 @@ async function addPlugin(options, pluginName){
             }
             
             const filesDirectory = path.join(process.env.DATA_DIR, "apps" , options.database);
-            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems});
+            await plugin.prepareDatabase({client, options, grantSchemaAccess, filesDirectory, appFileSystems, logger});
+            await client.query(`UPDATE openbamz.plugins SET version = $1 WHERE plugin_id = $2`, [package.version, pluginName])
         }else{
             logger.warn("Unknown plugin "+pluginName) ;
         }
