@@ -331,14 +331,14 @@ async function grantUserAccess(client, schemaName, databaseName, roleUserName="r
     let roleUser = databaseName+"_"+roleUserName;
 
    
-    await client.query(`GRANT SELECT, UPDATE, INSERT, DELETE ON ALL TABLES IN SCHEMA ${schemaName} TO ${roleUser}`)
+    await client.query(`GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON ALL TABLES IN SCHEMA ${schemaName} TO ${roleUser}`)
     await client.query(`GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ${schemaName} TO ${roleUser}`)
     await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schemaName} TO ${roleUser}`)
-    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLES TO ${roleUser}`)
     await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
     await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT EXECUTE ON FUNCTIONS TO ${roleUser}`)
-    await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
-    await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE ON TABLES TO ${roleUser}`)
+    await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLES TO ${roleUser}`)
+    await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLES TO ${roleUser}`)
     await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ${schemaName} GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
     await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA ${schemaName} GRANT SELECT, UPDATE ON SEQUENCES TO ${roleUser}`)
     await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${role} IN SCHEMA ${schemaName} GRANT EXECUTE ON FUNCTIONS TO ${roleUser}`)
