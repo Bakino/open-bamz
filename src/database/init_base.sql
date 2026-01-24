@@ -218,17 +218,28 @@ $$
         AND t.table_schema NOT IN ('information_schema', 'graphile_worker')
     ORDER BY t.table_schema, t.table_name, c.ordinal_position`);
 
-    const resultsFk = plv8.execute(`SELECT tc.constraint_name, tc.table_schema, tc.table_name, kc.column_name, ccu.table_schema AS foreign_table_schema,
-        ccu.table_name AS foreign_table_name, ccu.column_name AS foreign_column_name  FROM
-        information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kc ON kc.table_name = tc.table_name AND kc.table_schema = tc.table_schema
-        AND kc.constraint_name = tc.constraint_name
-        JOIN information_schema.tables t ON tc.table_name = t.table_name
-        JOIN information_schema.constraint_column_usage AS ccu
-            ON ccu.constraint_name = tc.constraint_name
-    WHERE 
-        tc.constraint_type = 'FOREIGN KEY'
-    ORDER BY ordinal_position`);
+    const resultsFk = plv8.execute(`SELECT
+            con.conname                          AS constraint_name,
+            src_ns.nspname                       AS table_schema,
+            src_tbl.relname                      AS table_name,
+            src_col.attname                      AS column_name,
+            tgt_ns.nspname                       AS foreign_table_schema,
+            tgt_tbl.relname                      AS foreign_table_name,
+            tgt_col.attname                      AS foreign_column_name
+        FROM pg_constraint con
+        JOIN pg_class src_tbl      ON src_tbl.oid = con.conrelid
+        JOIN pg_namespace src_ns   ON src_ns.oid = src_tbl.relnamespace
+        JOIN pg_class tgt_tbl      ON tgt_tbl.oid = con.confrelid
+        JOIN pg_namespace tgt_ns   ON tgt_ns.oid = tgt_tbl.relnamespace
+        JOIN unnest(con.conkey)    WITH ORDINALITY AS src(attnum, ord)
+            ON true
+        JOIN unnest(con.confkey)   WITH ORDINALITY AS tgt(attnum, ord)
+            ON src.ord = tgt.ord
+        JOIN pg_attribute src_col  ON src_col.attrelid = src_tbl.oid AND src_col.attnum = src.attnum
+        JOIN pg_attribute tgt_col  ON tgt_col.attrelid = tgt_tbl.oid AND tgt_col.attnum = tgt.attnum
+        JOIN information_schema.tables t ON src_tbl.relname = t.table_name
+        WHERE con.contype = 'f'
+        ORDER BY table_schema, table_name, constraint_name`);
     let fkByCol = {} ;
     for(let r of resultsFk){
         const key = `${r.table_schema}_${r.table_name}_${r.column_name}` ;
