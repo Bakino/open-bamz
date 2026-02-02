@@ -93,18 +93,24 @@ CREATE OR REPLACE TRIGGER openbamz_plugin_remove
     EXECUTE PROCEDURE openbamz.openbamz_plugin_remove();
 
 -- transaction functions
-DROP TYPE IF EXISTS openbamz.transaction_action_type CASCADE;
-DROP TYPE IF EXISTS openbamz.transaction_record_type CASCADE;
 
-CREATE TYPE openbamz.transaction_action_type AS ENUM ('insert', 'update', 'delete');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'transaction_record_type'
+  ) THEN
+    CREATE TYPE openbamz.transaction_action_type AS ENUM ('insert', 'update', 'delete');
 
-CREATE TYPE openbamz.transaction_record_type AS (
-    action openbamz.transaction_action_type,
-    table_name TEXT,
-    id TEXT,
-    record JSONB,
-    key JSONB
-);
+    CREATE TYPE openbamz.transaction_record_type AS (
+        action openbamz.transaction_action_type,
+        table_name TEXT,
+        id TEXT,
+        record JSONB,
+        key JSONB
+    );
+  END IF;
+END $$;
+
 
 -- run transaction actions
 -- supports insert, update, delete
