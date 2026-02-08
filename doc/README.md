@@ -160,7 +160,7 @@ initPlugin({contextOfApp, loadPluginData, hasCurrentPlugin, injectBamz, app, log
 |-------|-------------|
 | `contextOfApp(appName)` | This is a helper function to get the context of an application by its application name. It returns `{pluginsData: {...}}` where `pluginsData` contains the data of each plugin activated for this application. See more details below on how to communicate between plugins |
 | `appFileSystems` | This is a helper class to write file to application directory |
-| `loadPluginData(({pluginsData, appName})=>{})` | This helper function add a function that will be called to communicate data between plugins (see dedicated section below) |
+| `loadPluginData(({pluginsData, appName, client})=>{})` | This helper function add a function that will be called to communicate data between plugins (see dedicated section below). Use the give db client instead of runQuery to avoid connection leak  |
 | `userLoggedAndHasPlugin(req, res)` | Reject a request if the user is not logged or the plugin is not activated for the current application |
 | `hasCurrentPlugin(appName)` | This is a helper function to check if this plugin is currently activated to an application. A common usage is to call it in the added router middlewares to check that the plugin is activated before perform its action |
 | `injectBamz(html, appName)` | This is a helper function that inject BamZ loading code into a HTML code. This is done automatically by BamZ file serving, but if your plugin override to do something like SSR, you may need to use it to inject BamZ loading code in your handler  |

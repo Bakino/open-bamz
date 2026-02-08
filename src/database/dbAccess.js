@@ -28,9 +28,14 @@ async function getDbClient(options){
         pool = new Pool(opt);
         POOLS[key] = pool;
     }
+    // if(pool.totalCount==10){
+    //     console.log(pool._clients.map(c=>c.lastQuery).join("\n"))
+    // }
+    // console.log("POOL ? totalCount"+pool.totalCount+" / IDLE "+pool.idleCount)
     const client = await pool.connect() ;
     let _query = client.query ;
     client.query = async function(query, params){
+        // client.lastQuery = query;
         try{
             return await _query.call(client, query, params) ;
         }catch(err){

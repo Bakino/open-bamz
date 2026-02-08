@@ -103,7 +103,10 @@ const contextOfApp = async (appName)=>{
                 bamzSourcesPath: __dirname,
                 pluginsData: {}
             }
+            // console.log("CONTEXT ?? 22")
+            const pluginsById = {} ;
             for(let plugin of results.rows){
+                pluginsById[plugin.plugin_id] = plugin;
                 if(pluginsData[plugin.plugin_id]){
                     contextApp.pluginsData[plugin.plugin_id] = {appName, ...pluginsData[plugin.plugin_id]};
                     contextApp.pluginsData[plugin.plugin_id].pluginSlots = structuredClone(contextApp.pluginsData[plugin.plugin_id].pluginSlots) ;
@@ -111,9 +114,11 @@ const contextOfApp = async (appName)=>{
             }
             for(let {pluginName, listener} of loadListeners){
                 try{
-                    if(await hasPlugin(appName, pluginName)){
-                        await listener({pluginsData: contextApp.pluginsData, appName}) ;
+                    // console.log("CONTEXT ?? 33 "+pluginName) ;
+                    if(pluginsById[pluginName]){
+                        await listener({pluginsData: contextApp.pluginsData, appName, client}) ;
                     }
+                    // console.log("FIN CONTEXT ?? 33 "+pluginName) ;
                 }catch(err){
                     logger.error("Error while run plugin load listener %o", err) ;
                 }
