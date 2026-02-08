@@ -21,6 +21,10 @@ const {authRoutes, jwtMiddleware} = require('./auth');
 
 
 process.env.GRAPHILE_ENV = process.env.PROD_ENV  ;
+// process.env.MONO_DATABASE = "mypoolexpert" ;
+// process.env.DATA_DIR = "/workspaces/open-bamz" ;
+
+const IS_MONO_DB = !!process.env.MONO_DATABASE ;
 
 // Main DB connection information from env variables
 const mainDatabaseConnectionOptions = {
@@ -33,6 +37,10 @@ const mainDatabaseConnectionOptions = {
 
 // Prepare the main database. The main database contains applications informations and global users
 async function prepare() {
+    if(IS_MONO_DB){
+        logger.info("Mono database mode, don't start main database") ;
+        return ;
+    }
     logger.info("Prepare main database %o", mainDatabaseConnectionOptions)
     try {
         logger.info("Create database");
@@ -60,6 +68,68 @@ async function start() {
     const app = express()
     const port = 3000
 
+    //code to debug express middlewares
+    // function wrapMiddleware(fn, label) {
+    //     if (fn.__isWrapped) return fn;
+
+    //     const wrapped = function (req, res, next) {
+    //         const name = label || fn.name || 'anonymous';
+    //         console.log(`[MW START] ${name} ${req.originalUrl}`, fn);
+
+    //         let called = false;
+
+    //         const wrappedNext = (err) => {
+    //         if (!called) {
+    //             called = true;
+    //             console.log(`[MW END] ${name} ${req.originalUrl}`);
+    //         }
+    //         next(err);
+    //         };
+
+    //         try {
+    //         const result = fn(req, res, wrappedNext);
+
+    //         // gestion async (promise)
+    //         if (result && typeof result.then === 'function') {
+    //             result.catch(err => wrappedNext(err));
+    //         }
+    //         } catch (err) {
+    //         wrappedNext(err);
+    //         }
+    //     };
+
+    //     wrapped.__isWrapped = true;
+    //     return wrapped;
+    // }
+
+    // function patchUse(target, labelPrefix = '') {
+    // const originalUse = target.use;
+
+    // target.use = function (...args) {
+    //     const wrappedArgs = args.map(arg => {
+    //     if (typeof arg === 'function') {
+    //         return wrapMiddleware(arg, labelPrefix);
+    //     }
+    //     return arg;
+    //     });
+
+    //     return originalUse.apply(this, wrappedArgs);
+    // };
+    // }
+
+    //     // patch app
+    //     patchUse(app, 'app');
+
+    //     // patch routers
+    //     const Router = express.Router;
+    //     express.Router = function (...args) {
+    //     const router = Router.apply(this, args);
+    //     patchUse(router, 'router');
+    //     return router;
+    //     };
+
+
+
     app.use(cookieParser());
     // app.use(cors({
     //     origin: /.*/,
@@ -78,10 +148,20 @@ async function start() {
     // parse application/x-www-form-urlencoded
     app.use(bodyParser.urlencoded({ limit:'50mb', extended: false }))
 
-    app.use('/auth', authRoutes);
+    if(!IS_MONO_DB){
+        // start auth route only if has main database
+        app.use('/auth', authRoutes);
+    }
 
     // middleware to determine the application name from hostname or headers
     app.use(async (req, res, next) => {
+        if(IS_MONO_DB){
+            // mono database mode, the app name is forced
+            req.appName = process.env.MONO_DATABASE ;
+            res.setHeader('app-name', req.appName) ;
+            return next() ;
+        }
+
         let appName = null ;
 
         // search in cache
@@ -195,6 +275,10 @@ async function start() {
 
     // Middleware to search all HTML files or / requests and inject bamz-lib
     app.get(/.*\.html$|\/$/, async (req, res, next) => {
+        if(IS_MONO_DB){
+            // in mono database, we run exported sources that already embed bamz lib
+            return next() ;
+        }
         let appName = req.appName ;
         let relativePath = null;
         let basePath = null; 
@@ -271,9 +355,12 @@ async function start() {
 
     //Register after the middleware to modify HTML
     for(let pluginDir of Object.keys(pluginsData)){
-        //register static files of each plugin
-        if(pluginsData[pluginDir].frontEndPath){
-            app.use(`/plugin/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
+
+        if(!IS_MONO_DB){ // in mono db mode, the plugin files are exported in the sources
+            //register static files of each plugin
+            if(pluginsData[pluginDir].frontEndPath){
+                app.use(`/plugin/${pluginDir}/`, express.static(pluginsData[pluginDir].frontEndFullPath));
+            }
         }
 
         //register router of each plugin
@@ -283,22 +370,24 @@ async function start() {
         }
     }
 
-    // Serve bamz-lib static files
-    app.use(`/bamz-lib/`, express.static(path.join(__dirname, "lib-client")));
+    if(!IS_MONO_DB){
+        // Serve bamz-lib static files
+        app.use(`/bamz-lib/`, express.static(path.join(__dirname, "lib-client")));
 
-    // List of plugins
-    app.get("/plugin_list", (req, res)=>{
-        res.json(Object.keys(pluginsData).map(pluginId=>{
-            return {
-                id: pluginId,
-                description: pluginsData[pluginId].manifest.description,
-                name: pluginsData[pluginId].manifest.name
-            }
-        }))
-    });
+        // List of plugins
+        app.get("/plugin_list", (req, res)=>{
+            res.json(Object.keys(pluginsData).map(pluginId=>{
+                return {
+                    id: pluginId,
+                    description: pluginsData[pluginId].manifest.description,
+                    name: pluginsData[pluginId].manifest.name
+                }
+            }))
+        });
 
-    // Special route to serve the admin menu JS
-    app.get("/_openbamz_admin.js", middlewareMenuJS);
+        // Special route to serve the admin menu JS
+        app.get("/_openbamz_admin.js", middlewareMenuJS);
+    }
 
     const graphqlServers = [] ;
 
@@ -308,10 +397,16 @@ async function start() {
     app.use(["/graphql/*any", "/graphiql/*any"], async (req, res, next)=>{
         // initialize graphql and static files serve
         //let appName = req.appName ;
-        let appName = req.baseUrl.replace(/^\/graph[i]{0,1}ql\//, "").replace(/^\/app\/{0,1}/, "") ; ;
-        let slashIndex = appName.indexOf("/");
-        if(slashIndex !== -1){
-            appName = appName.substring(0, slashIndex) ;
+        let appName;
+        if(IS_MONO_DB){
+            // in mono database, force the db name
+            appName = process.env.MONO_DATABASE ;
+        }else{
+            appName = req.baseUrl.replace(/^\/graph[i]{0,1}ql\//, "").replace(/^\/app\/{0,1}/, "") ; ;
+            let slashIndex = appName.indexOf("/");
+            if(slashIndex !== -1){
+                appName = appName.substring(0, slashIndex) ;
+            }
         }
         if(appName && appName !== process.env.DB_NAME){
             // get the graphql instance
@@ -405,6 +500,7 @@ async function start() {
 
             // Serve the file
             createReadStream(filePath).pipe(res);
+        // eslint-disable-next-line no-unused-vars
         }catch(err){
             return next() ;
         }

@@ -112,7 +112,9 @@ const mainDbPreset = {
 
 // Create configuration for app database
 function createAppPreset(options){
-    return {
+    const IS_MONO_DB = !!process.env.MONO_DATABASE ;
+
+    const preset = {
         extends: [PostGraphileAmberPreset,/* PgLazyJWTPreset,*/ PostGraphileConnectionFilterPreset],
         plugins: [IdToNodeIdPlugin],
         disablePlugins: ['PgIndexBehaviorsPlugin'],
@@ -188,6 +190,13 @@ function createAppPreset(options){
             }
         },
     };
+    if(IS_MONO_DB){
+        // disable graphiql (ruru) GUI
+        preset.grafserv.graphiqlOnGraphQLGET = false;
+        preset.grafserv.graphiql = false;
+        preset.grafserv.enhanceGraphiql = false;
+    }
+    return preset ;
 }
 
 module.exports.mainDbPreset = mainDbPreset;
