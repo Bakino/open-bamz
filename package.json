@@ -33,8 +33,8 @@
         "express": "^5.1.0",
         "fs-extra": "^11.3.2",
         "graphile-worker": "^0.16.6",
-        "postgraphile": "^5.0.0-beta.48",
-        "postgraphile-plugin-connection-filter": "^3.0.0-beta.8",
+        "postgraphile": "^5.0.0-rc.6",
+        "postgraphile-plugin-connection-filter": "^3.0.0-rc.1",
         "send": "^1.2.0",
         "socket.io": "^4.8.1",
         "winston": "^3.17.0"
