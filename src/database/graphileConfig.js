@@ -180,6 +180,9 @@ function createAppPreset(options){
                         }
                     }
                 }
+                if(req){
+                  pgSettings["req.host"] = req.get('host') ;
+                }
                 return {
                   pgSettings: {
                     ...pgSettings,
