@@ -342,7 +342,7 @@ async function start() {
             const data = await fs.promises.readFile(filePath, 'utf8') ;
             let modifiedHtml = data;
             // Example modification: Inject a script tag
-            modifiedHtml = injectBamz(modifiedHtml, appName, isPlugin) ;
+            modifiedHtml = await injectBamz(modifiedHtml, appName, isPlugin, req) ;
             
             res.setHeader('Content-Type', 'text/html');
             res.end(modifiedHtml);

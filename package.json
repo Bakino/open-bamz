@@ -33,6 +33,7 @@
         "express": "^5.1.0",
         "fs-extra": "^11.3.2",
         "graphile-worker": "^0.16.6",
+        "liquidjs": "^10.24.0",
         "postgraphile": "^5.0.0-rc.6",
         "postgraphile-plugin-connection-filter": "^3.0.0-rc.1",
         "send": "^1.2.0",

@@ -1,4 +1,6 @@
 
+const { Liquid } = require('liquidjs');
+
 const BAMZ_BODY_STYLE = "opacity: 0;"
 
 /**
@@ -8,7 +10,7 @@ const BAMZ_BODY_STYLE = "opacity: 0;"
  * @param {string} appName the application name
  * @returns the modified HTML
  */
-function injectBamz(src, appName, isPlugin){
+async function injectBamz(src, appName, isPlugin, req){
     const BAMZ_INJECT_SRC = `<script id="bamz-app" type="text/javascript">
             window.BAMZ_APP = '${appName}' ;${isPlugin?`window.BAMZ_IN_PLUGIN = true;`:""}
             window.bamzWaitLoaded = function(){
@@ -64,6 +66,23 @@ function injectBamz(src, appName, isPlugin){
         srcLower = src.toLowerCase() ;
         indexEndBody = srcLower.indexOf(">", indexBody) ;
         src = src.substring(0, indexEndBody+1)+BAMZ_INJECT_SRC+ src.substring(indexEndBody+1) ;
+
+        if(req && req.headers && src.includes("{%") && src.includes("%}")){
+            const context = {
+                headers: {
+                    ...req.headers
+                }
+            };
+            if(context.headers["x-forwarded-host"]){
+                context.headers.host = context.headers["x-forwarded-host"] ;
+            }
+            const engine = new Liquid();
+            try{
+                src = await engine.parseAndRender(src, context) ;
+            }catch(err){
+                console.error("Error while rendering liquid template", err) ;
+            }
+        }
     }
     return src;
 }
