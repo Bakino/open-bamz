@@ -34,10 +34,12 @@
         "fs-extra": "^11.3.2",
         "graphile-worker": "^0.16.6",
         "liquidjs": "^10.24.0",
+        "morgan": "^1.10.1",
         "postgraphile": "^5.0.0-rc.6",
         "postgraphile-plugin-connection-filter": "^3.0.0-rc.1",
         "send": "^1.2.0",
         "socket.io": "^4.8.1",
-        "winston": "^3.17.0"
+        "winston": "^3.17.0",
+        "winston-daily-rotate-file": "^5.0.0"
     }
 }
