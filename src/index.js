@@ -1,11 +1,12 @@
 const logger = require("./logger");
 const express = require("express");
+const morgan = require('morgan');
 const mime = require('mime-types')
 const bodyParser = require('body-parser')
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises ;
-const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded } = require("./database/init");
+const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded, startWorkers } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS, contextOfApp } = require("./pluginManager");
 const graphql = require("./database/graphql");
@@ -39,6 +40,12 @@ const mainDatabaseConnectionOptions = {
 async function prepare() {
     if(IS_MONO_DB){
         logger.info("Mono database mode, don't start main database") ;
+        logger.info("Start worker") ;
+        const opts = { ...mainDatabaseConnectionOptions, database: process.env.MONO_DATABASE}
+        startWorkers(opts).catch((err) => {
+            logger.warn(err);
+            //process.exit(1);
+        });
         return ;
     }
     logger.info("Prepare main database %o", mainDatabaseConnectionOptions)
@@ -131,6 +138,71 @@ async function start() {
 
 
     app.use(cookieParser());
+
+    // access log middleware if configured
+    const accessLogger = require('./logger-access-log');
+    if (accessLogger) {
+        // custom morgan tokens
+        morgan.token('appName', req => req.appName || '-');
+        morgan.token('bamzUser', req => (req.jwt?.bamz?.role) || '-');
+        morgan.token('appUser', req => {
+            const name = req.appName;
+            if (name && req.jwt && req.jwt["user_"+name] && req.jwt["user_"+name].login) {
+                return req.jwt["user_"+name].login;
+            }
+            return '-';
+        });
+        // helper that masks sensitive keys in an object
+        function maskSensitive(obj) {
+            if (obj && typeof obj === 'object') {
+                if (Array.isArray(obj)) {
+                    return obj.map(maskSensitive);
+                }
+                const res = {};
+                for (const [k, v] of Object.entries(obj)) {
+                    const lower = k.toLowerCase();
+                    if (lower.includes('token') || lower.includes('password')) {
+                        res[k] = '*****';
+                    } else {
+                        res[k] = maskSensitive(v);
+                    }
+                }
+                return res;
+            }
+            return obj;
+        }
+
+        morgan.token('body', (req) => {
+            if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+                try {
+                    let str = '';
+                    if (req.body) {
+                        if (typeof req.body === 'string') {
+                            str = req.body;
+                        } else {
+                            // deep clone with masked fields
+                            const safe = maskSensitive(req.body);
+                            str = JSON.stringify(safe);
+                        }
+                    }
+                    if (str.length > 8192) {
+                        str = str.slice(0, 8192) + '...';
+                    }
+                    return str.replace(/\s+/g, ' ');
+                // eslint-disable-next-line no-unused-vars
+                } catch (e) {
+                    return '-';
+                }
+            }
+            return '-';
+        });
+
+        const accessFormat = ':date[iso] :appName :bamzUser :appUser :method :url :status :response-time ms :body';
+
+        app.use(morgan(accessFormat, { stream: { write: msg => accessLogger.info(msg.trim()) } }));
+    }
+
+
     // app.use(cors({
     //     origin: /.*/,
     //     credentials: true,
