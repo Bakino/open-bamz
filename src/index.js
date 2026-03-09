@@ -333,6 +333,10 @@ async function start() {
         callback(null, corsOptions);
     }));
 
+    app.get("/health", (req, res)=>{
+        res.json({ok: 1})
+    }) ;
+
     function getAppPath(appName){
         if(appName===process.env.DB_NAME){
             return path.join(__dirname, "open-bamz-front");
