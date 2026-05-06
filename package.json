@@ -35,6 +35,7 @@
         "graphile-worker": "^0.16.6",
         "liquidjs": "^10.24.0",
         "morgan": "^1.10.1",
+        "node-schedule": "^2.1.1",
         "postgraphile": "^5.0.0-rc.6",
         "postgraphile-plugin-connection-filter": "^3.0.0-rc.1",
         "send": "^1.2.0",

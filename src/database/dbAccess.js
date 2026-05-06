@@ -12,12 +12,9 @@ const MAIN_DB_OPTIONS = {
 };
 
 const POOLS = {} ;
-/**
- * Get a database client with the specified options.
- * @param {*} options connection options (user, password, host, port, database). Use MAIN_DB_OPTIONS as default
- * @returns a pg database client (don't forget to call client.release() when done !)
- */
-async function getDbClient(options){
+
+
+function getDbPool(options){
     let opt = JSON.parse(JSON.stringify(MAIN_DB_OPTIONS));
     for(let k of Object.keys(options)){
         opt[k] = options[k];
@@ -28,6 +25,16 @@ async function getDbClient(options){
         pool = new Pool(opt);
         POOLS[key] = pool;
     }
+    return pool ;
+}
+
+/**
+ * Get a database client with the specified options.
+ * @param {*} options connection options (user, password, host, port, database). Use MAIN_DB_OPTIONS as default
+ * @returns a pg database client (don't forget to call client.release() when done !)
+ */
+async function getDbClient(options){
+    const pool = getDbPool(options) ;
     // if(pool.totalCount==10){
     //     console.log(pool._clients.map(c=>c.lastQuery).join("\n"))
     // }
@@ -126,5 +133,6 @@ module.exports.runQueryMain = runQueryMain;
 module.exports.runQuery = runQuery;
 module.exports.getMainDbClient = getMainDbClient;
 module.exports.getDbClient = getDbClient;
+module.exports.getDbPool = getDbPool;
 module.exports.hasPlugin = hasPlugin;
 

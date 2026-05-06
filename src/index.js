@@ -9,8 +9,9 @@ const fsp = fs.promises ;
 const { createIfNotExist, prepareSchema,prepareMainRoles, startAllWorkers, createRolesIfNeeded, startWorkers } = require("./database/init");
 const { createServer } = require("node:http");
 const { initPlugins, middlewareMenuJS, contextOfApp } = require("./pluginManager");
+const { loadApps } = require("./appManager");
 const graphql = require("./database/graphql");
-const { runQuery, runQueryMain, getDbClient } = require("./database/dbAccess");
+const { runQuery, runQueryMain, getDbClient, getDbPool } = require("./database/dbAccess");
 const { injectBamz } = require("./utils");
 const { initWebSocket, io } = require("./websocket");
 const {hostnameCache, appCache} = require("./appCache");
@@ -337,17 +338,23 @@ async function start() {
         res.json({ok: 1})
     }) ;
 
+    
+    
+    // Initialize plugins
+    const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, getDbPool, io}) ;
+
+    const appsData = await loadApps({app, logger, graphql, runQuery, runQueryMain, getDbClient, getDbPool, io}) ;
+
     function getAppPath(appName){
         if(appName===process.env.DB_NAME){
             return path.join(__dirname, "open-bamz-front");
         }
-        return path.join(process.env.DATA_DIR, "apps" ,appName, "public");
+        let appPath = path.join(process.env.DATA_DIR, "apps" ,appName, "public") ;
+        if(appsData[appName]?.hasFrontend){
+            appPath = path.join(appPath, "frontend");
+        }
+        return appPath;
     }
-    
-    // Initialize plugins
-    const pluginsData = await initPlugins({app, logger, graphql, runQuery, runQueryMain, getDbClient, io}) ;
-
-
 
     // Middleware to search all HTML files or / requests and inject bamz-lib
     app.get(/.*\.html$|\/$/, async (req, res, next) => {
@@ -445,6 +452,18 @@ async function start() {
             app.use(`/${pluginDir}/`, pluginsData[pluginDir].router);
         }
     }
+
+    for(let appName of Object.keys(appsData)){
+
+        //register router of each plugin
+        if(appsData[appName].routers){
+            for(let routerData of appsData[appName].routers){
+                logger.info(`Register routing /${appName}/${routerData.name}/`);
+                app.use(`/${appName}/${routerData.name}/`, routerData.router);
+            }
+        }
+    }
+    
 
     if(!IS_MONO_DB){
         // Serve bamz-lib static files
