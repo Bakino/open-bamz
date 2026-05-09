@@ -140,3 +140,5 @@ vite.config.ts.timestamp-*
 
 ssh_keys
 jwt_keys
+
+apps
